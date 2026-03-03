@@ -1,6 +1,6 @@
 # X-Tern Agents
 
-A full-stack Disruption Response Planner with FastAPI backend, multi-agent LangGraph pipeline, and React frontend.
+A full-stack AI-native Disruption Response Planner with FastAPI backend, multi-agent LangGraph pipeline, and Next.js frontend.
 
 ## Project Structure
 
@@ -9,7 +9,11 @@ A full-stack Disruption Response Planner with FastAPI backend, multi-agent LangG
 │   ├── app/          # FastAPI application (Milestone 3)
 │   ├── scripts/      # Seed data, pipeline runners, tests
 │   └── docs/         # Milestone documentation
-├── frontend/         # React (Vite) - Coming in Milestone 4
+├── frontend/         # Next.js 14 + TypeScript + Tailwind (Milestone 4)
+│   ├── src/app/      # App Router pages
+│   ├── src/components/ # Shared + UI components
+│   ├── src/lib/      # API client, types, auth
+│   └── src/hooks/    # Data fetching hooks
 ├── infra/            # Infrastructure configs
 ├── environment.yml   # Conda environment (Python + Node.js)
 └── AWS_SETUP.md      # AWS configuration guide
@@ -20,7 +24,7 @@ A full-stack Disruption Response Planner with FastAPI backend, multi-agent LangG
 - ✅ **Milestone 1**: Database + MCP Tools ([README](backend/MILESTONE_1_README.md), [Complete](MILESTONE_1_COMPLETE.md))
 - ✅ **Milestone 2**: LangGraph Multi-Agent Pipeline ([Quick Start](backend/MILESTONE_2_QUICK_START.md), [Complete](MILESTONE_2_COMPLETE.md))
 - ✅ **Milestone 3**: FastAPI Backend APIs + Auth + Execution Gating ([README](backend/MILESTONE_3_README.md), [Complete](MILESTONE_3_COMPLETE.md))
-- 🚧 **Milestone 4**: Next.js Frontend (Coming soon)
+- ✅ **Milestone 4**: Next.js Frontend with Glassmorphism Theme ([README](frontend/MILESTONE_4_README.md), [Complete](MILESTONE_4_COMPLETE.md))
 
 ## Setup
 
@@ -72,7 +76,35 @@ cp frontend/.env.example frontend/.env
 
 ## Quick Start
 
-### Milestone 3: FastAPI Backend
+### Full Stack (Milestone 4 + 3)
+
+```bash
+# 1. Setup environment (from repo root)
+conda env create -f environment.yml
+conda activate xtern-agents
+
+# 2. Start backend (terminal 1)
+cd backend
+./run_milestone3.sh
+# Backend runs on http://localhost:8000
+
+# 3. Start frontend (terminal 2)
+cd frontend
+pnpm install
+pnpm dev
+# Frontend runs on http://localhost:3000
+
+# 4. Login
+# Visit http://localhost:3000
+# Manager: manager_01 / password
+# Analyst: analyst_01 / password
+```
+
+**Frontend**: http://localhost:3000  
+**API Documentation**: http://localhost:8000/api/docs  
+**Default Login**: `manager_01` / `password`
+
+### Milestone 3: FastAPI Backend Only
 
 ```bash
 # 1. Setup environment (from repo root)
@@ -90,9 +122,6 @@ PYTHONPATH=$(pwd) python scripts/seed_data.py
 # 4. Test API (in new terminal)
 python scripts/api_smoke_test.py
 ```
-
-**API Documentation**: http://localhost:8000/api/docs  
-**Default Login**: `manager_01` / `password`
 
 ### Milestone 2: Multi-Agent Pipeline
 
@@ -141,20 +170,32 @@ cd backend
 
 ## Frontend
 
-Coming in Milestone 4:
-- **Framework:** Next.js 14 with TypeScript
-- **UI Library:** Tailwind CSS + shadcn/ui
-- **State Management:** React Query for API calls
-- **Authentication**: JWT token management
+**Tech Stack:**
+- **Framework:** Next.js 16.1.6 (App Router)
+- **Language:** TypeScript 5.9
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Data Fetching:** SWR with auto-refresh
+- **Authentication**: JWT with role-based access
+- **Theme:** Glassmorphism dark with gradient background
 
-### Planned Pages
+### Pages
 
-- Login
-- Dashboard (metrics + recent decisions)
-- Disruptions List
-- Pipeline Runs (with real-time status)
-- Scenarios Approval Queue
-- Audit Log Viewer
+- **Login**: JWT authentication with username/password
+- **Dashboard**: KPIs, SLA risk chart, recent disruptions
+- **Disruptions**: Inbox with filters, create dialog, detail sheet
+- **Scenarios**: Grouped comparison with approve/reject (manager-only)
+- **Approvals**: Manager-only queue with bulk approve
+- **Audit Log**: Filterable log with export to JSON
+- **Run Planner**: Pipeline trigger with real-time stepper
+
+### Key Features
+
+- **Real-Time Updates**: SWR auto-refresh (10-15s intervals)
+- **Pipeline Polling**: 2s updates while running
+- **Role-Based UI**: Manager vs Analyst permissions
+- **Skeleton Loaders**: No spinners, glass shimmer animation
+- **Toast Notifications**: All user actions have feedback
+- **Error Handling**: 401 auto-logout, constraint violations
 
 ## Environment Variables
 
