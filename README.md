@@ -13,6 +13,54 @@ A full-stack application with FastAPI backend, React frontend, and MCP (Model Co
 └── README.md
 ```
 
+## Setup
+
+### Prerequisites
+
+- [Conda](https://docs.conda.io/en/latest/miniconda.html) or [Mamba](https://mamba.readthedocs.io/) (recommended for faster installs)
+- Git
+
+### Environment Setup
+
+1. Clone the repository:
+
+```bash
+git clone <repository-url>
+cd X-Tern-Agents
+```
+
+2. Create and activate the conda environment:
+
+```bash
+# Using conda
+conda env create -f environment.yml
+conda activate xtern-agents
+
+# OR using mamba (faster)
+mamba env create -f environment.yml
+mamba activate xtern-agents
+```
+
+3. Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+4. Configure environment variables:
+
+```bash
+# Backend
+cp backend/.env.example backend/.env
+# Edit backend/.env with your AWS credentials and configuration
+
+# Frontend
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env if needed
+```
+
 ## Quick Start
 
 ### Development
