@@ -1,0 +1,186 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ==========================================================================
+   DisruptIQ — Glassmorphism Dark Theme (Milestone 4)
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Shadcn tokens: keep components consistent in dark UI */
+  --radius: 1rem;
+  --background: 222 84% 5%;
+  --foreground: 0 0% 98%;
+
+  --card: 222 84% 5%;
+  --card-foreground: 0 0% 98%;
+
+  --popover: 222 84% 5%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 187 92% 52%; /* cyan-400 */
+  --primary-foreground: 222 84% 5%;
+
+  --secondary: 263 70% 64%; /* violet-400 */
+  --secondary-foreground: 222 84% 5%;
+
+  --muted: 222 28% 14%;
+  --muted-foreground: 0 0% 70%;
+
+  --accent: 222 28% 14%;
+  --accent-foreground: 0 0% 98%;
+
+  --destructive: 346 77% 50%; /* rose-500 */
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 0 0% 100% / 10%;
+  --input: 0 0% 100% / 15%;
+  --ring: 187 92% 52%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: rgb(255 255 255);
+
+  /* Background: fixed deep navy->dark purple gradient */
+  background: linear-gradient(to bottom right, #0f0c29, #302b63, #24243e);
+  background-attachment: fixed;
+}
+
+/* ==========================================================================
+   Glass utilities
+   ========================================================================== */
+
+.glass-card {
+  background: rgb(255 255 255 / 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgb(255 255 255 / 0.10);
+  border-radius: 1rem;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.35);
+}
+
+.glass-hover-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.glass-hover-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    rgb(34 211 238 / 0.55),
+    rgb(167 139 250 / 0.45),
+    rgb(244 63 94 / 0.40)
+  );
+  opacity: 0;
+  transition: opacity 200ms ease, transform 200ms ease;
+  transform: translateY(6px);
+  z-index: -1;
+}
+
+.glass-hover-border:hover::before {
+  opacity: 0.75;
+  transform: translateY(0);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px rgb(34 211 238 / 0.3);
+}
+
+/* ==========================================================================
+   Custom thin scrollbar
+   ========================================================================== */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.22);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.32);
+}
+
+/* ==========================================================================
+   Code blocks
+   ========================================================================== */
+
+.code-block {
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgb(255 255 255 / 0.10);
+  border-radius: 0.9rem;
+  padding: 0.75rem 1rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.85);
+  overflow-x: auto;
+}
+
+/* ==========================================================================
+   Skeleton shimmer (no spinners)
+   ========================================================================== */
+
+@keyframes glass-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.glass-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0.06) 0%,
+    rgb(255 255 255 / 0.14) 50%,
+    rgb(255 255 255 / 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: glass-shimmer 1.25s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Stepper pulsing cyan dot
+   ========================================================================== */
+
+@keyframes pulse-cyan {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(34 211 238 / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(34 211 238 / 0);
+  }
+}
+
+.pulse-dot {
+  animation: pulse-cyan 1.6s infinite;
+}

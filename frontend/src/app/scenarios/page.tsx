@@ -1,0 +1,152 @@
+"use client";
+
+import * as React from "react";
+import { ChevronDown } from "lucide-react";
+import { toast } from "sonner";
+
+import { useRequireAuth, useAuth } from "@/lib/auth";
+import type { Scenario, ScenarioScore } from "@/lib/types";
+import { approveScenario, rejectScenario } from "@/lib/api";
+import { useScenarios } from "@/hooks/useScenarios";
+
+import { GlassCard } from "@/components/shared/GlassCard";
+import { ScenarioCard } from "@/components/shared/ScenarioCard";
+import { CardGridSkeleton } from "@/components/shared/Skeletons";
+
+type Group = {
+  disruption_id: string;
+  scenarios: Scenario[];
+};
+
+function groupByDisruption(items: Scenario[]): Group[] {
+  const map = new Map<string, Scenario[]>();
+  for (const s of items) {
+    if (!map.has(s.disruption_id)) map.set(s.disruption_id, []);
+    map.get(s.disruption_id)!.push(s);
+  }
+  return Array.from(map.entries()).map(([disruption_id, scenarios]) => ({
+    disruption_id,
+    scenarios: scenarios.sort((a, b) => (a.created_at > b.created_at ? -1 : 1)),
+  }));
+}
+
+function computeRecommendedScenarioIds(items: Scenario[]): Set<string> {
+  const bestByKey = new Map<string, Scenario>();
+  for (const s of items) {
+    const key = s.order_id || s.scenario_id;
+    const prev = bestByKey.get(key);
+    const score = (s.score_json as ScenarioScore)?.overall_score ?? 1e9;
+    const prevScore = prev ? ((prev.score_json as ScenarioScore)?.overall_score ?? 1e9) : 1e9;
+    if (!prev || score < prevScore) bestByKey.set(key, s);
+  }
+  return new Set(Array.from(bestByKey.values()).map((s) => s.scenario_id));
+}
+
+export default function ScenariosPage() {
+  useRequireAuth();
+  const { isManager } = useAuth();
+
+  const { scenarios, isLoading, mutate } = useScenarios();
+
+  const groups = React.useMemo(() => groupByDisruption(scenarios), [scenarios]);
+  const recommendedIds = React.useMemo(() => computeRecommendedScenarioIds(scenarios), [scenarios]);
+
+  const onApprove = async (id: string, note: string) => {
+    try {
+      await approveScenario(id, { note });
+      toast.success("Scenario approved");
+      mutate();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to approve");
+    }
+  };
+
+  const onReject = async (id: string, note: string) => {
+    try {
+      await rejectScenario(id, { note });
+      toast.success("Scenario rejected");
+      mutate();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to reject");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="text-sm font-semibold text-white">Scenario Comparison</div>
+        <div className="text-[11px] text-white/50">
+          Grouped by disruption. Recommended plan is the lowest overall_score per order.
+        </div>
+      </div>
+
+      {isLoading ? (
+        <CardGridSkeleton count={6} />
+      ) : groups.length === 0 ? (
+        <div className="glass-card p-8 text-center text-xs text-white/50">
+          No scenarios available. Run the planner first.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((g) => (
+            <DisruptionGroup
+              key={g.disruption_id}
+              group={g}
+              isManager={isManager}
+              recommendedIds={recommendedIds}
+              onApprove={onApprove}
+              onReject={onReject}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DisruptionGroup(props: {
+  group: Group;
+  isManager: boolean;
+  recommendedIds: Set<string>;
+  onApprove: (scenarioId: string, note: string) => Promise<void>;
+  onReject: (scenarioId: string, note: string) => Promise<void>;
+}) {
+  const [open, setOpen] = React.useState(true);
+  const { group } = props;
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left"
+      >
+        <GlassCard className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-all duration-200">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-white">
+              Disruption <span className="font-mono text-white/70">{group.disruption_id}</span>
+            </div>
+            <div className="text-[11px] text-white/50">{group.scenarios.length} scenarios</div>
+          </div>
+          <ChevronDown className={`h-4 w-4 text-white/50 transition-all duration-200 ${open ? "rotate-180" : ""}`} />
+        </GlassCard>
+      </button>
+
+      {open ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {group.scenarios.map((s) => (
+            <ScenarioCard
+              key={s.scenario_id}
+              scenario={s}
+              recommended={props.recommendedIds.has(s.scenario_id)}
+              isManager={props.isManager}
+              onApprove={(note) => props.onApprove(s.scenario_id, note)}
+              onReject={(note) => props.onReject(s.scenario_id, note)}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+

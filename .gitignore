@@ -65,3 +65,6 @@ Thumbs.db
 # Misc
 *.bak
 *.tmp
+
+# Local backup of old Vite frontend
+frontend-vite/
