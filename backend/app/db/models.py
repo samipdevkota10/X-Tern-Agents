@@ -55,6 +55,9 @@ class Order(Base):
     status: Mapped[str] = mapped_column(
         String, nullable=False, default="open"
     )  # open, planned, shipped, delayed
+    sequence_priority: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5
+    )  # 1=urgent, 5=normal
 
     # Relationships
     lines: Mapped[list["OrderLine"]] = relationship(
@@ -203,8 +206,10 @@ class PipelineRun(Base):
         String, ForeignKey("disruptions.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(
-        String, nullable=False, default="running"
-    )  # running, done, failed
+        String, nullable=False, default="queued"
+    )  # queued, running, done, failed
+    current_step: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    progress: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)  # 0.0 to 1.0
     started_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -214,3 +219,17 @@ class PipelineRun(Base):
 
     # Indexes
     __table_args__ = (Index("ix_pipeline_runs_disruption_id", "disruption_id"),)
+
+
+class User(Base):
+    """Represents a user with authentication credentials."""
+
+    __tablename__ = "users"
+
+    user_id: Mapped[str] = mapped_column(String, primary_key=True)
+    username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # warehouse_manager, analyst
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )

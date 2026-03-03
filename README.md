@@ -1,17 +1,26 @@
 # X-Tern Agents
 
-A full-stack application with FastAPI backend, React frontend, and MCP (Model Context Protocol) server layer.
+A full-stack Disruption Response Planner with FastAPI backend, multi-agent LangGraph pipeline, and React frontend.
 
 ## Project Structure
 
 ```
-├── backend/          # FastAPI + LangChain + AWS SDK
-├── frontend/         # React (Vite)
+├── backend/          # FastAPI + LangGraph + LangChain + AWS SDK
+│   ├── app/          # FastAPI application (Milestone 3)
+│   ├── scripts/      # Seed data, pipeline runners, tests
+│   └── docs/         # Milestone documentation
+├── frontend/         # React (Vite) - Coming in Milestone 4
 ├── infra/            # Infrastructure configs
-├── docker-compose.yml
-├── Makefile
-└── README.md
+├── environment.yml   # Conda environment (Python + Node.js)
+└── AWS_SETUP.md      # AWS configuration guide
 ```
+
+## Milestones
+
+- ✅ **Milestone 1**: Database + MCP Tools ([README](backend/MILESTONE_1_README.md), [Complete](MILESTONE_1_COMPLETE.md))
+- ✅ **Milestone 2**: LangGraph Multi-Agent Pipeline ([Quick Start](backend/MILESTONE_2_QUICK_START.md), [Complete](MILESTONE_2_COMPLETE.md))
+- ✅ **Milestone 3**: FastAPI Backend APIs + Auth + Execution Gating ([README](backend/MILESTONE_3_README.md), [Complete](MILESTONE_3_COMPLETE.md))
+- 🚧 **Milestone 4**: Next.js Frontend (Coming soon)
 
 ## Setup
 
@@ -63,63 +72,89 @@ cp frontend/.env.example frontend/.env
 
 ## Quick Start
 
-### Development
+### Milestone 3: FastAPI Backend
 
 ```bash
-# Start all services
-make dev
+# 1. Setup environment (from repo root)
+conda env create -f environment.yml
+conda activate xtern-agents
 
-# Start backend only
-make backend
+# 2. Seed database (if not already done)
+cd backend
+PYTHONPATH=$(pwd) python scripts/seed_data.py
 
-# Start frontend only
-make frontend
+# 3. Start API server
+./run_milestone3.sh
+# Or: uvicorn app.main:app --reload
 
-# Run tests
-make test
-
-# Format code
-make fmt
+# 4. Test API (in new terminal)
+python scripts/api_smoke_test.py
 ```
 
-### Docker
+**API Documentation**: http://localhost:8000/api/docs  
+**Default Login**: `manager_01` / `password`
+
+### Milestone 2: Multi-Agent Pipeline
 
 ```bash
-docker-compose up --build
+cd backend
+PYTHONPATH=$(pwd) USE_AWS=0 python scripts/run_pipeline_once.py
+```
+
+### Milestone 1: Database + Tools
+
+```bash
+cd backend
+./run_milestone1.sh
 ```
 
 ## Backend
 
-- **Framework:** FastAPI
-- **AI/ML:** LangChain, AWS Bedrock
-- **Database:** DynamoDB
-- **Storage:** S3
+- **Framework:** FastAPI with JWT authentication
+- **AI/ML:** LangGraph multi-agent system, LangChain, AWS Bedrock (optional)
+- **Database:** SQLite (local) or PostgreSQL (AWS RDS)
+- **Storage:** Optional AWS S3, DynamoDB for pipeline status
 
-### Endpoints
+### Key Features
 
-- `GET /health` - Health check
-- `POST /cases` - Create a new case
-- `GET /cases` - List all cases
-- `POST /cases/{id}/decisions` - Append decision log
+- **JWT Authentication**: Role-based access (warehouse_manager, analyst)
+- **REST API**: 20+ endpoints for disruptions, pipeline, scenarios, audit logs
+- **Real Execution Gating**: Scenarios validated and applied with constraint checking
+- **Multi-Agent Pipeline**: Supervisor pattern with 4 specialized agents
+- **Audit Trail**: Complete decision logging for compliance
 
-### MCP Tools
+### API Endpoints
 
-- `read_case_state` - Read current case state
-- `write_decision_record` - Write decision to log
-- `compute_risk_score` - Calculate risk score
+- **Auth**: `/api/auth/login`, `/api/auth/me`
+- **Disruptions**: `/api/disruptions` (CRUD)
+- **Pipeline**: `/api/pipeline/run`, `/api/pipeline/{id}/status`
+- **Scenarios**: `/api/scenarios` (list/approve/reject/edit)
+- **Audit**: `/api/audit-logs`
+- **Dashboard**: `/api/dashboard`
+
+### MCP Tools (Milestone 1)
+
+- `read_open_orders`, `read_inventory`, `read_inbound_status`
+- `read_capacity`, `get_pending_scenarios`
+- `write_scenarios`, `approve_scenario`, `reject_scenario`
+- `write_decision_log`, `read_disruption`, `read_substitutions`
 
 ## Frontend
 
-- **Framework:** React 18 + Vite
-- **Routing:** React Router
-- **State:** React Context
+Coming in Milestone 4:
+- **Framework:** Next.js 14 with TypeScript
+- **UI Library:** Tailwind CSS + shadcn/ui
+- **State Management:** React Query for API calls
+- **Authentication**: JWT token management
 
-### Pages
+### Planned Pages
 
-- Login (placeholder)
-- Case List
-- Case Detail (timeline view)
-- Approval Modal (HITL - Human In The Loop)
+- Login
+- Dashboard (metrics + recent decisions)
+- Disruptions List
+- Pipeline Runs (with real-time status)
+- Scenarios Approval Queue
+- Audit Log Viewer
 
 ## Environment Variables
 

@@ -185,27 +185,29 @@ def needs_approval(
     )
 
 
-def score_scenario(scenario: dict[str, Any], order: dict[str, Any]) -> dict[str, Any]:
+def score_scenario(
+    action_type: str,
+    order_priority: str,
+    plan: dict[str, Any],
+    order_line_count: int = 1,
+) -> dict[str, Any]:
     """
     Complete scoring for a single scenario.
     
     Args:
-        scenario: Scenario dict with action_type and plan_json
-        order: Order dict with priority and other details
+        action_type: One of delay, reroute, substitute, resequence
+        order_priority: standard, expedited, vip
+        plan: Plan JSON dict with scenario-specific parameters
+        order_line_count: Number of order lines (default 1)
         
     Returns:
         Score dictionary with all metrics
     """
-    action_type = scenario["action_type"]
-    order_priority = order.get("priority", "standard")
-    plan = scenario.get("plan_json", {})
-    
     # Extract scenario-specific parameters
     penalty_cost = plan.get("penalty_cost", 0.0)
     transfer_distance = 1 if plan.get("target_dc") else 0
     cutoff_exceeded = plan.get("cutoff_exceeded", False)
     availability_sufficient = plan.get("availability_sufficient", True)
-    order_line_count = len(order.get("lines", []))
     
     # Calculate metrics
     cost_impact = calculate_cost_impact(
