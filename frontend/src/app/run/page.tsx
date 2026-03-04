@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useRequireAuth } from "@/lib/auth";
 import type { Disruption, PipelineRunStatus } from "@/lib/types";
-import { runPipeline } from "@/lib/api";
+import { startPipeline } from "@/lib/api";
 import { useDisruptions } from "@/hooks/useDisruptions";
 import { usePipelineStatus } from "@/hooks/usePipelineStatus";
 
@@ -57,7 +57,7 @@ export default function RunPage() {
     }
     setStarting(true);
     try {
-      const res = await runPipeline(effectiveDisruptionId);
+      const res = await startPipeline(effectiveDisruptionId);
       setRunId(res.pipeline_run_id);
       toast.success("Pipeline started.");
     } catch (e: unknown) {
@@ -87,9 +87,9 @@ export default function RunPage() {
                 <SelectTrigger className="h-9 border-white/10 bg-black/30 text-white/80">
                   <SelectValue placeholder={disruptions.isLoading ? "Loading…" : "Select disruption"} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-900 border-white/20">
                   {disruptions.disruptions.map((d: Disruption) => (
-                    <SelectItem key={d.id} value={d.id}>
+                    <SelectItem key={d.id} value={d.id} className="text-white/90 focus:bg-slate-800 focus:text-white">
                       {d.type} • S{d.severity} • {d.id.slice(0, 10)}…
                     </SelectItem>
                   ))}

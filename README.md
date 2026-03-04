@@ -2,6 +2,14 @@
 
 A full-stack AI-native Disruption Response Planner with FastAPI backend, multi-agent LangGraph pipeline, and Next.js frontend.
 
+**Now featuring LLM-driven intelligent routing and MCP server integration!**
+
+## Documentation
+
+- 📖 [Demo Guide](docs/DEMO.md) - Complete end-to-end demo walkthrough
+- 🔒 [Security Policy](SECURITY.md) - Authentication, secrets, and compliance
+- 📊 [Problem & Impact](docs/PROBLEM_AND_IMPACT.md) - Business case and ROI
+
 ## Project Structure
 
 ```
@@ -14,9 +22,44 @@ A full-stack AI-native Disruption Response Planner with FastAPI backend, multi-a
 │   ├── src/components/ # Shared + UI components
 │   ├── src/lib/      # API client, types, auth
 │   └── src/hooks/    # Data fetching hooks
+├── docs/             # Project documentation
+│   ├── DEMO.md       # Demo walkthrough
+│   └── PROBLEM_AND_IMPACT.md  # Business case
 ├── infra/            # Infrastructure configs
 ├── environment.yml   # Conda environment (Python + Node.js)
+├── SECURITY.md       # Security policy
 └── AWS_SETUP.md      # AWS configuration guide
+```
+
+## What's New: LLM-Driven Routing
+
+The multi-agent pipeline now uses **intelligent LLM-driven routing** by default:
+
+- **Dynamic step selection**: Claude analyzes state and decides next step
+- **Deterministic guardrails**: Prerequisites and loop protection always enforced
+- **Routing trace**: Full visibility into routing decisions
+- **Graceful degradation**: Falls back to deterministic routing if LLM unavailable
+
+```python
+# Example routing trace entry
+{
+  "from": "signal_intake",
+  "llm_next": "constraint_builder",
+  "final": "constraint_builder",
+  "confidence": 0.92
+}
+```
+
+## What's New: MCP Server Mode
+
+Enable modular tool architecture with Model Context Protocol:
+
+```bash
+# Start MCP server
+PYTHONPATH=$(pwd) python scripts/run_mcp_server.py &
+
+# Run with MCP mode
+USE_MCP_SERVER=1 uvicorn app.main:app --reload
 ```
 
 ## Milestones
@@ -104,6 +147,41 @@ pnpm dev
 **API Documentation**: http://localhost:8000/api/docs  
 **Default Login**: `manager_01` / `password`
 
+## Demo (Local)
+
+For a complete end-to-end demonstration, see [docs/DEMO.md](docs/DEMO.md).
+
+Quick demo path:
+1. Login as `manager_01`
+2. Create a disruption (Disruptions → + New Disruption)
+3. Run the planner (click disruption → Run Planner)
+4. Watch LLM routing in action (check terminal logs)
+5. Review scenarios (Scenarios page)
+6. Approve/reject as manager (Approvals page)
+7. View audit trail (Audit Log page)
+
+## Demo (MCP Mode)
+
+Run the same demo with MCP server for modular tool architecture:
+
+```bash
+# Terminal 1: Start MCP server
+cd backend
+PYTHONPATH=$(pwd) python scripts/run_mcp_server.py &
+
+# Terminal 2: Start backend with MCP mode
+USE_MCP_SERVER=1 PYTHONPATH=$(pwd) uvicorn app.main:app --reload
+
+# Terminal 3: Start frontend
+cd frontend && pnpm dev
+```
+
+Check logs for MCP tool calls:
+```
+DEBUG: [MCP] read_disruption: D-20260303-001
+DEBUG: [MCP] write_scenarios: 3 scenarios
+```
+
 ### Milestone 3: FastAPI Backend Only
 
 ```bash
@@ -150,7 +228,9 @@ cd backend
 - **REST API**: 20+ endpoints for disruptions, pipeline, scenarios, audit logs
 - **Real Execution Gating**: Scenarios validated and applied with constraint checking
 - **Multi-Agent Pipeline**: Supervisor pattern with 4 specialized agents
-- **Audit Trail**: Complete decision logging for compliance
+- **LLM-Driven Routing**: Claude-powered intelligent step selection with guardrails
+- **MCP Server Mode**: Optional modular tool architecture via MCP protocol
+- **Audit Trail**: Complete decision logging with routing trace for compliance
 
 ### API Endpoints
 
@@ -205,6 +285,18 @@ Copy `.env.example` files to `.env`:
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
+
+### Key Backend Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite:///./warehouse.db` | Database connection string |
+| `JWT_SECRET` | (required) | JWT signing key (32+ chars in prod) |
+| `USE_AWS` | `0` | Enable AWS services (Bedrock, DynamoDB) |
+| `BEDROCK_MODEL_ID` | - | Claude model ID for LLM routing |
+| `USE_MCP_SERVER` | `0` | Route tool calls via MCP server |
+| `USE_DETERMINISTIC_ROUTING` | `0` | Disable LLM routing (legacy mode) |
+| `MAX_PIPELINE_STEPS` | `20` | Max steps before forced finalize |
 
 ## License
 

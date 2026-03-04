@@ -44,7 +44,7 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
 
         # Import graph builder (lazy import to avoid circular dependencies)
         from app.agents.graph import build_graph
-        from app.agents.state import AgentState
+        from app.agents.state import PipelineState
 
         # Build graph
         pipeline_run.current_step = "building_graph"
@@ -53,17 +53,18 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
 
         graph = build_graph()
 
-        # Prepare initial state
-        initial_state: AgentState = {
+        # Prepare initial state with LLM routing fields initialized
+        initial_state: PipelineState = {
             "pipeline_run_id": pipeline_run_id,
             "disruption_id": disruption_id,
-            "impacted_orders": [],
-            "constraints": {},
-            "scenarios": [],
-            "scored_scenarios": [],
-            "final_recommendations": [],
-            "messages": [],
-            "next_agent": "signal_intake",
+            "step": "start",
+            # LLM routing fields with safe defaults
+            "step_count": 0,
+            "max_steps": None,  # Uses MAX_PIPELINE_STEPS env default
+            "needs_review": False,
+            "early_exit_reason": None,
+            "scenario_retry_count": 0,
+            "routing_trace": [],
         }
 
         # Execute graph
@@ -74,17 +75,32 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
         final_state = graph.invoke(initial_state)
 
         # Extract final summary
+        signal = final_state.get("signal", {})
+        scenarios = final_state.get("scenarios", [])
+        final_summary_from_state = final_state.get("final_summary", {})
+        
+        # Get LLM routing metadata
+        needs_review = final_state.get("needs_review", False)
+        early_exit_reason = final_state.get("early_exit_reason")
+        routing_trace = final_state.get("routing_trace", [])
+        step_count = final_state.get("step_count", 0)
+        
         final_summary = {
             "disruption_id": disruption_id,
-            "impacted_orders_count": len(final_state.get("impacted_orders", [])),
-            "scenarios_count": len(final_state.get("scenarios", [])),
-            "recommended_actions": final_state.get("final_recommendations", []),
+            "impacted_orders_count": len(signal.get("impacted_order_ids", [])),
+            "scenarios_count": len(scenarios),
+            "recommended_actions": final_summary_from_state.get("recommended_actions", scenarios[:3]),
             "approval_queue_count": sum(
                 1
-                for rec in final_state.get("final_recommendations", [])
-                if rec.get("needs_approval", False)
+                for s in scenarios
+                if s.get("score_json", {}).get("needs_approval", False)
             ),
-            "kpis": _calculate_kpis(final_state.get("final_recommendations", [])),
+            "kpis": final_summary_from_state.get("kpis", _calculate_kpis(scenarios)),
+            # LLM routing metadata
+            "needs_review": needs_review,
+            "early_exit_reason": early_exit_reason,
+            "routing_steps": step_count,
+            "routing_trace": routing_trace[-10:] if routing_trace else [],  # Keep last 10
         }
 
         # Try to add AI explanation if Bedrock is available
@@ -98,8 +114,8 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
             print(f"Could not generate explanation: {e}")
             final_summary["explanation"] = "Explanation unavailable"
 
-        # Update pipeline run as done
-        pipeline_run.status = "done"
+        # Update pipeline run as done (or needs_review)
+        pipeline_run.status = "needs_review" if needs_review else "done"
         pipeline_run.current_step = "completed"
         pipeline_run.progress = 1.0
         pipeline_run.completed_at = datetime.now(timezone.utc)

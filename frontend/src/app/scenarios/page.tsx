@@ -5,9 +5,10 @@ import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { useRequireAuth, useAuth } from "@/lib/auth";
-import type { Scenario, ScenarioScore } from "@/lib/types";
+import type { Scenario, ScenarioScore, Disruption } from "@/lib/types";
 import { approveScenario, rejectScenario } from "@/lib/api";
 import { useScenarios } from "@/hooks/useScenarios";
+import { useDisruptions } from "@/hooks/useDisruptions";
 
 import { GlassCard } from "@/components/shared/GlassCard";
 import { ScenarioCard } from "@/components/shared/ScenarioCard";
@@ -15,10 +16,11 @@ import { CardGridSkeleton } from "@/components/shared/Skeletons";
 
 type Group = {
   disruption_id: string;
+  disruption_type?: string;
   scenarios: Scenario[];
 };
 
-function groupByDisruption(items: Scenario[]): Group[] {
+function groupByDisruption(items: Scenario[], disruptionMap: Map<string, Disruption>): Group[] {
   const map = new Map<string, Scenario[]>();
   for (const s of items) {
     if (!map.has(s.disruption_id)) map.set(s.disruption_id, []);
@@ -26,6 +28,7 @@ function groupByDisruption(items: Scenario[]): Group[] {
   }
   return Array.from(map.entries()).map(([disruption_id, scenarios]) => ({
     disruption_id,
+    disruption_type: disruptionMap.get(disruption_id)?.type,
     scenarios: scenarios.sort((a, b) => (a.created_at > b.created_at ? -1 : 1)),
   }));
 }
@@ -47,13 +50,23 @@ export default function ScenariosPage() {
   const { isManager } = useAuth();
 
   const { scenarios, isLoading, mutate } = useScenarios();
+  const { disruptions } = useDisruptions();
 
-  const groups = React.useMemo(() => groupByDisruption(scenarios), [scenarios]);
+  // Create a map for quick lookup of disruption by ID
+  const disruptionMap = React.useMemo(() => {
+    const map = new Map<string, Disruption>();
+    for (const d of disruptions) {
+      map.set(d.id, d);
+    }
+    return map;
+  }, [disruptions]);
+
+  const groups = React.useMemo(() => groupByDisruption(scenarios, disruptionMap), [scenarios, disruptionMap]);
   const recommendedIds = React.useMemo(() => computeRecommendedScenarioIds(scenarios), [scenarios]);
 
   const onApprove = async (id: string, note: string) => {
     try {
-      await approveScenario(id, { note });
+      await approveScenario(id, note);
       toast.success("Scenario approved");
       mutate();
     } catch (e: unknown) {
@@ -63,7 +76,7 @@ export default function ScenariosPage() {
 
   const onReject = async (id: string, note: string) => {
     try {
-      await rejectScenario(id, { note });
+      await rejectScenario(id, note);
       toast.success("Scenario rejected");
       mutate();
     } catch (e: unknown) {
@@ -114,6 +127,11 @@ function DisruptionGroup(props: {
   const [open, setOpen] = React.useState(true);
   const { group } = props;
 
+  // Create friendly label from disruption type
+  const typeLabel = group.disruption_type
+    ? group.disruption_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Unknown";
+
   return (
     <div className="space-y-2">
       <button
@@ -124,7 +142,7 @@ function DisruptionGroup(props: {
         <GlassCard className="px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-all duration-200">
           <div className="min-w-0">
             <div className="text-xs font-semibold text-white">
-              Disruption <span className="font-mono text-white/70">{group.disruption_id}</span>
+              {typeLabel} <span className="font-mono text-white/50 text-[10px]">({group.disruption_id.slice(0, 8)}…)</span>
             </div>
             <div className="text-[11px] text-white/50">{group.scenarios.length} scenarios</div>
           </div>

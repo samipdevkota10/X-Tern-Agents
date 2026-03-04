@@ -7,7 +7,7 @@ from io import BytesIO
 import boto3
 from botocore.exceptions import ClientError
 
-from app.config import settings
+from app.core.config import settings
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)

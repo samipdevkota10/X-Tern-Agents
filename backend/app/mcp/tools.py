@@ -252,6 +252,8 @@ def write_scenarios(scenarios: list[dict]) -> dict:
                 plan_json=json_dumps(scenario_data["plan_json"]),
                 score_json=json_dumps(score_json),
                 status=scenario_data.get("status", "pending"),
+                used_llm=scenario_data.get("used_llm", False),
+                llm_rationale=scenario_data.get("llm_rationale"),
                 created_at=datetime.now(timezone.utc),
             )
             db.add(scenario)

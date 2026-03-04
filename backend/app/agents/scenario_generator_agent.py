@@ -1,10 +1,12 @@
 """
 Scenario Generator Agent - Creates response scenarios.
+Uses LLM reasoning when available, falls back to deterministic rules.
 """
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from app.agents.llm_agent import get_scenario_agent
 from app.agents.rules import generate_scenarios_for_order
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
@@ -65,11 +67,32 @@ def scenario_generator_node(state: PipelineState) -> dict[str, Any]:
         }
         
         all_scenarios = []
+        used_llm = False
         
-        # Generate scenarios for each impacted order
-        for order in impacted_orders:
-            scenarios = generate_scenarios_for_order(order, disruption, constraints)
-            all_scenarios.extend(scenarios)
+        # Try LLM-based scenario generation first
+        llm_agent = get_scenario_agent()
+        if llm_agent.use_llm:
+            try:
+                llm_scenarios = llm_agent.generate_scenarios(
+                    disruption=disruption,
+                    impacted_orders=impacted_orders,
+                    constraints=constraints,
+                )
+                if llm_scenarios:
+                    all_scenarios = llm_scenarios
+                    used_llm = True
+            except Exception as e:
+                print(f"LLM scenario generation failed, falling back to rules: {e}")
+        
+        # Fallback to deterministic rules if LLM didn't produce scenarios
+        if not all_scenarios:
+            for order in impacted_orders:
+                scenarios = generate_scenarios_for_order(order, disruption, constraints)
+                all_scenarios.extend(scenarios)
+        
+        # Add used_llm flag to each scenario for frontend display
+        for scenario in all_scenarios:
+            scenario["used_llm"] = used_llm
         
         # Persist scenarios to database
         if all_scenarios:
@@ -78,14 +101,15 @@ def scenario_generator_node(state: PipelineState) -> dict[str, Any]:
         else:
             created_count = 0
         
-        # Log decision
+        # Log decision with reasoning mode
+        reasoning_mode = "LLM-powered reasoning (AWS Bedrock)" if used_llm else "deterministic rules"
         log_agent_step(
             pipeline_run_id=pipeline_run_id,
             agent_name="ScenarioGeneratorAgent",
             input_summary=f"{len(impacted_orders)} impacted orders",
-            output_summary=f"Generated {len(all_scenarios)} scenarios, persisted {created_count} to DB",
-            confidence_score=0.88,
-            rationale=f"Applied deterministic scenario generation rules for {len(impacted_orders)} orders",
+            output_summary=f"Generated {len(all_scenarios)} scenarios using {reasoning_mode}, persisted {created_count} to DB",
+            confidence_score=0.92 if used_llm else 0.88,
+            rationale=f"Used {reasoning_mode} to generate {len(all_scenarios)} response options for {len(impacted_orders)} orders",
         )
         
         write_status_safe(

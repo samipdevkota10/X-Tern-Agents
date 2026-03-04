@@ -23,13 +23,30 @@ export function ScenarioCard(props: {
   const [note, setNote] = React.useState("");
   const [busy, setBusy] = React.useState<"approve" | "reject" | null>(null);
 
-  const score = scenario.score_json;
+  const score = scenario.score_json ?? {};
   const plan = scenario.plan_json ?? {};
+  
+  // Safe score values with defaults
+  const costImpact = score.cost_impact_usd ?? 0;
+  const slaRisk = score.sla_risk ?? 0;
+  const laborMinutes = score.labor_impact_minutes ?? 0;
 
-  const rationale =
-    typeof plan.rationale === "string" && plan.rationale.trim().length > 0
+  // Check if LLM was used for this scenario
+  const isLLMGenerated = Boolean(scenario.llm_rationale || scenario.used_llm);
+  
+  // Get the summary to display - prefer summary field, then llm_rationale, then generic
+  const summary =
+    typeof plan.summary === "string" && plan.summary.trim().length > 0
+      ? plan.summary
+      : typeof scenario.llm_rationale === "string" && scenario.llm_rationale.trim().length > 0
+      ? scenario.llm_rationale
+      : typeof plan.rationale === "string" && plan.rationale.trim().length > 0
       ? plan.rationale
-      : "Deterministic recommendation based on disruption constraints and SLA/cost tradeoffs.";
+      : "Recommendation based on disruption constraints and SLA/cost tradeoffs.";
+  
+  const reasoningSourceLabel = isLLMGenerated
+    ? "AI Reasoning (AWS Bedrock + RAG)"
+    : "Rule-based Analysis";
 
   const approve = async () => {
     setBusy("approve");
@@ -82,17 +99,30 @@ export function ScenarioCard(props: {
         </div>
 
         <div className="flex flex-col items-end gap-1.5">
-          <MetricPill label="Cost" value={`$${score.cost_impact_usd.toFixed(0)}`} color="amber" />
-          <MetricPill label="SLA" value={`${(score.sla_risk * 100).toFixed(1)}%`} color="rose" />
+          <MetricPill label="Cost" value={`$${costImpact.toFixed(0)}`} color="amber" />
+          <MetricPill label="SLA" value={`${(slaRisk * 100).toFixed(1)}%`} color="rose" />
           <MetricPill
             label="Labor"
-            value={`${(score.labor_impact_minutes / 60).toFixed(1)}h`}
+            value={`${(laborMinutes / 60).toFixed(1)}h`}
             color="emerald"
           />
         </div>
       </div>
 
-      <div className="text-xs text-white/70 line-clamp-2">{rationale}</div>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+            isLLMGenerated
+              ? "bg-violet-500/20 text-violet-300 ring-1 ring-violet-400/30"
+              : "bg-slate-500/20 text-slate-300 ring-1 ring-slate-400/30"
+          )}>
+            {isLLMGenerated ? "🤖 LLM" : "📐 Rules"}
+          </span>
+          <span className="text-[10px] text-white/40">{reasoningSourceLabel}</span>
+        </div>
+        <div className="text-xs text-white/70 line-clamp-3">{summary}</div>
+      </div>
 
       <div className="flex items-center justify-between gap-2 pt-1">
         <button
@@ -151,7 +181,7 @@ export function ScenarioCard(props: {
       </div>
 
       {expanded ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-3">
           <div className="text-[11px] text-white/50">Optional note (used for approval/rejection):</div>
           <textarea
             value={note}
@@ -160,9 +190,43 @@ export function ScenarioCard(props: {
             className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/80 placeholder:text-white/30 outline-none focus:border-cyan-400/40 transition-all duration-200"
             rows={2}
           />
-          <div className="code-block max-h-64 overflow-auto">
-            <pre className="whitespace-pre-wrap">{JSON.stringify(plan, null, 2)}</pre>
-          </div>
+          
+          {/* Human-readable plan display */}
+          {plan.summary || plan.what_happened || plan.what_to_do || plan.how_to_handle ? (
+            <div className="space-y-3">
+              {plan.summary && (
+                <div className="rounded-lg bg-cyan-500/10 border border-cyan-400/20 p-3">
+                  <div className="text-[10px] font-semibold text-cyan-300 uppercase tracking-wider mb-1">Summary</div>
+                  <div className="text-sm text-white/90">{plan.summary}</div>
+                </div>
+              )}
+              
+              {plan.what_happened && (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-400/20 p-3">
+                  <div className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider mb-1">What Happened</div>
+                  <div className="text-xs text-white/80">{plan.what_happened}</div>
+                </div>
+              )}
+              
+              {plan.what_to_do && (
+                <div className="rounded-lg bg-emerald-500/10 border border-emerald-400/20 p-3">
+                  <div className="text-[10px] font-semibold text-emerald-300 uppercase tracking-wider mb-1">What to Do</div>
+                  <div className="text-xs text-white/80">{plan.what_to_do}</div>
+                </div>
+              )}
+              
+              {plan.how_to_handle && (
+                <div className="rounded-lg bg-violet-500/10 border border-violet-400/20 p-3">
+                  <div className="text-[10px] font-semibold text-violet-300 uppercase tracking-wider mb-1">How to Handle</div>
+                  <div className="text-xs text-white/80 whitespace-pre-line">{plan.how_to_handle}</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="code-block max-h-64 overflow-auto">
+              <pre className="whitespace-pre-wrap">{JSON.stringify(plan, null, 2)}</pre>
+            </div>
+          )}
         </div>
       ) : null}
     </GlassCard>

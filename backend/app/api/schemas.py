@@ -111,6 +111,8 @@ class ScenarioResponse(BaseModel):
     plan_json: dict[str, Any]
     score_json: dict[str, Any]
     status: str
+    used_llm: bool = False
+    llm_rationale: str | None = None
     created_at: datetime
 
     class Config:
@@ -127,6 +129,8 @@ class ScenarioPendingResponse(BaseModel):
     plan_json: dict[str, Any]
     score_json: dict[str, Any]
     status: str
+    used_llm: bool = False
+    llm_rationale: str | None = None
     created_at: datetime
     # Joined data
     disruption_type: str
