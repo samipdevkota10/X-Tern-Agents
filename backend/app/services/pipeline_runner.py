@@ -1,15 +1,20 @@
 """
 Pipeline runner service for executing LangGraph multi-agent pipeline.
+Includes TRiSM (Trust, Risk, Security Management) governance evaluation.
 """
 import json
 import traceback
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.db.models import DecisionLog, PipelineRun
+from app.governance.trism import AIGovernanceFramework
+
+# Governance framework instance
+_governance = AIGovernanceFramework()
 
 
 def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
@@ -44,7 +49,7 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
 
         # Import graph builder (lazy import to avoid circular dependencies)
         from app.agents.graph import build_graph
-        from app.agents.state import AgentState
+        from app.agents.state import PipelineState
 
         # Build graph
         pipeline_run.current_step = "building_graph"
@@ -53,17 +58,18 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
 
         graph = build_graph()
 
-        # Prepare initial state
-        initial_state: AgentState = {
+        # Prepare initial state with LLM routing fields initialized
+        initial_state: PipelineState = {
             "pipeline_run_id": pipeline_run_id,
             "disruption_id": disruption_id,
-            "impacted_orders": [],
-            "constraints": {},
-            "scenarios": [],
-            "scored_scenarios": [],
-            "final_recommendations": [],
-            "messages": [],
-            "next_agent": "signal_intake",
+            "step": "start",
+            # LLM routing fields with safe defaults
+            "step_count": 0,
+            "max_steps": None,  # Uses MAX_PIPELINE_STEPS env default
+            "needs_review": False,
+            "early_exit_reason": None,
+            "scenario_retry_count": 0,
+            "routing_trace": [],
         }
 
         # Execute graph
@@ -74,17 +80,73 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
         final_state = graph.invoke(initial_state)
 
         # Extract final summary
+        signal = final_state.get("signal", {})
+        scenarios = final_state.get("scenarios", [])
+        final_summary_from_state = final_state.get("final_summary", {})
+
+        # Get LLM routing metadata
+        needs_review = final_state.get("needs_review", False)
+        early_exit_reason = final_state.get("early_exit_reason")
+        routing_trace = final_state.get("routing_trace", [])
+        step_count = final_state.get("step_count", 0)
+
+        # TRiSM Governance Evaluation
+        trism_evaluation = None
+        try:
+            # Fetch decision logs for this pipeline run
+            decision_logs = (
+                db.query(DecisionLog)
+                .filter(DecisionLog.pipeline_run_id == pipeline_run_id)
+                .all()
+            )
+            decision_log_dicts = [
+                {
+                    "agent_name": log.agent_name,
+                    "rationale": log.rationale,
+                    "confidence_score": log.confidence_score,
+                    "human_decision": log.human_decision,
+                    "input_summary": log.input_summary,
+                    "output_summary": log.output_summary,
+                }
+                for log in decision_logs
+            ]
+
+            # Run TRiSM evaluation
+            trism_result = _governance.evaluate_pipeline_run(
+                pipeline_run_id=pipeline_run_id,
+                scenarios=scenarios,
+                decision_logs=decision_log_dicts,
+            )
+            trism_evaluation = trism_result.to_dict()
+
+            # Escalate if TRiSM flagged critical issues
+            if trism_result.approval_required and not needs_review:
+                needs_review = True
+                if not early_exit_reason:
+                    early_exit_reason = f"TRiSM: {trism_result.risk_level.value} risk"
+
+        except Exception as e:
+            print(f"TRiSM evaluation failed (non-fatal): {e}")
+            trism_evaluation = {"error": str(e), "evaluated_at": datetime.now(UTC).isoformat()}
+
         final_summary = {
             "disruption_id": disruption_id,
-            "impacted_orders_count": len(final_state.get("impacted_orders", [])),
-            "scenarios_count": len(final_state.get("scenarios", [])),
-            "recommended_actions": final_state.get("final_recommendations", []),
+            "impacted_orders_count": len(signal.get("impacted_order_ids", [])),
+            "scenarios_count": len(scenarios),
+            "recommended_actions": final_summary_from_state.get("recommended_actions", scenarios[:3]),
             "approval_queue_count": sum(
                 1
-                for rec in final_state.get("final_recommendations", [])
-                if rec.get("needs_approval", False)
+                for s in scenarios
+                if s.get("score_json", {}).get("needs_approval", False)
             ),
-            "kpis": _calculate_kpis(final_state.get("final_recommendations", [])),
+            "kpis": final_summary_from_state.get("kpis", _calculate_kpis(scenarios)),
+            # LLM routing metadata
+            "needs_review": needs_review,
+            "early_exit_reason": early_exit_reason,
+            "routing_steps": step_count,
+            "routing_trace": routing_trace[-10:] if routing_trace else [],  # Keep last 10
+            # TRiSM Governance
+            "trism_evaluation": trism_evaluation,
         }
 
         # Try to add AI explanation if Bedrock is available
@@ -98,11 +160,11 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
             print(f"Could not generate explanation: {e}")
             final_summary["explanation"] = "Explanation unavailable"
 
-        # Update pipeline run as done
-        pipeline_run.status = "done"
+        # Update pipeline run as done (or needs_review)
+        pipeline_run.status = "needs_review" if needs_review else "done"
         pipeline_run.current_step = "completed"
         pipeline_run.progress = 1.0
-        pipeline_run.completed_at = datetime.now(timezone.utc)
+        pipeline_run.completed_at = datetime.now(UTC)
         pipeline_run.final_summary_json = json.dumps(final_summary)
         db.commit()
 
@@ -120,7 +182,7 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
             if pipeline_run:
                 pipeline_run.status = "failed"
                 pipeline_run.current_step = "error"
-                pipeline_run.completed_at = datetime.now(timezone.utc)
+                pipeline_run.completed_at = datetime.now(UTC)
                 pipeline_run.error_message = error_message
                 db.commit()
 
@@ -128,7 +190,7 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
                 log_id = str(uuid.uuid4())
                 decision_log = DecisionLog(
                     log_id=log_id,
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    timestamp=datetime.now(UTC).isoformat(),
                     pipeline_run_id=pipeline_run_id,
                     agent_name="SupervisorFailure",
                     input_summary=f"Pipeline run {pipeline_run_id} for disruption {disruption_id}",

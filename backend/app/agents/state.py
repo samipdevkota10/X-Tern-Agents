@@ -15,6 +15,7 @@ class PipelineState(TypedDict, total=False):
     pipeline_run_id: str
     disruption_id: str
     step: str  # Current step for supervisor routing
+    next_step: Optional[str]  # Next step computed by LLM router
     
     # Signal Intake Agent output
     signal: Optional[dict[str, Any]]  # Normalized incident with impacted_order_ids
@@ -33,3 +34,11 @@ class PipelineState(TypedDict, total=False):
     
     # Error tracking
     error: Optional[str]
+    
+    # LLM-driven routing fields (safe defaults)
+    step_count: int  # Current step count for loop protection (default: 0)
+    max_steps: Optional[int]  # Max steps override (default: use env MAX_PIPELINE_STEPS)
+    needs_review: bool  # Flag for human review required (default: False)
+    early_exit_reason: Optional[str]  # Reason for early termination
+    scenario_retry_count: int  # Retry count for scenario generation (default: 0)
+    routing_trace: list  # Trace of routing decisions (list of small dicts)

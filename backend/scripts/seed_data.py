@@ -181,60 +181,67 @@ def main() -> None:
         db.add_all(capacity_records)
         print(f"✓ Created {len(capacity_records)} capacity records\n")
         
-        # Generate disruptions
+        # Generate disruptions with clear, explainable scenarios
         print("Generating disruptions...")
         disruptions = []
         
-        # 2 late_truck disruptions
-        for i in range(2):
-            truck_id = inbound_shipments[i].truck_id
-            disruptions.append(
-                Disruption(
-                    id=generate_uuid_deterministic(),
-                    type="late_truck",
-                    severity=random.randint(2, 4),
-                    timestamp=now - timedelta(minutes=random.randint(10, 120)),
-                    details_json=json.dumps({
-                        "truck_id": truck_id,
-                        "delay_minutes": random.randint(60, 240),
-                    }),
-                    status="open",
-                )
+        # Disruption 1: Late truck with critical inventory
+        disruptions.append(
+            Disruption(
+                id=generate_uuid_deterministic(),
+                type="late_truck",
+                severity=4,
+                timestamp=now - timedelta(minutes=45),
+                details_json=json.dumps({
+                    "truck_id": inbound_shipments[0].truck_id,
+                    "delay_minutes": 180,
+                    "description": "Truck T001 delayed 3 hours due to highway accident. Contains replenishment stock for bestselling items.",
+                    "affected_skus": ["SKU0012", "SKU0034", "SKU0089"],
+                    "original_eta": (now + timedelta(hours=1)).isoformat(),
+                    "new_eta": (now + timedelta(hours=4)).isoformat(),
+                }),
+                status="open",
             )
+        )
         
-        # 2 stockout disruptions
-        for _ in range(2):
-            disruptions.append(
-                Disruption(
-                    id=generate_uuid_deterministic(),
-                    type="stockout",
-                    severity=random.randint(3, 5),
-                    timestamp=now - timedelta(minutes=random.randint(10, 120)),
-                    details_json=json.dumps({
-                        "sku": random.choice(skus),
-                        "shortage_qty": random.randint(10, 50),
-                        "dc": random.choice(["DC1", "DC2"]),
-                    }),
-                    status="open",
-                )
+        # Disruption 2: Critical stockout affecting VIP orders
+        disruptions.append(
+            Disruption(
+                id=generate_uuid_deterministic(),
+                type="stockout",
+                severity=5,
+                timestamp=now - timedelta(minutes=30),
+                details_json=json.dumps({
+                    "sku": "SKU0045",
+                    "shortage_qty": 25,
+                    "dc": "DC1",
+                    "description": "Complete stockout of SKU0045 (Premium Widget) at DC1. 8 VIP orders pending with 25 total units needed. Next resupply in 48 hours.",
+                    "affected_order_count": 8,
+                    "substitute_available": True,
+                    "substitute_sku": "SKU0046",
+                }),
+                status="open",
             )
+        )
         
-        # 2 machine_down disruptions
-        for _ in range(2):
-            disruptions.append(
-                Disruption(
-                    id=generate_uuid_deterministic(),
-                    type="machine_down",
-                    severity=random.randint(2, 5),
-                    timestamp=now - timedelta(minutes=random.randint(10, 120)),
-                    details_json=json.dumps({
-                        "process": random.choice(processes),
-                        "dc": random.choice(["DC1", "DC2"]),
-                        "expected_recovery_minutes": random.randint(30, 180),
-                    }),
-                    status="open",
-                )
+        # Disruption 3: Packing machine down during peak hours
+        disruptions.append(
+            Disruption(
+                id=generate_uuid_deterministic(),
+                type="machine_down",
+                severity=4,
+                timestamp=now - timedelta(minutes=60),
+                details_json=json.dumps({
+                    "process": "packing",
+                    "dc": "DC1",
+                    "expected_recovery_minutes": 120,
+                    "description": "Primary packing line A down due to conveyor belt failure. Backup line B running at 60% capacity. Technician on-site working on repairs.",
+                    "orders_in_queue": 45,
+                    "backup_capacity_percent": 60,
+                }),
+                status="open",
             )
+        )
         
         db.add_all(disruptions)
         print(f"✓ Created {len(disruptions)} disruptions\n")

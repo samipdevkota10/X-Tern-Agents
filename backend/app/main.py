@@ -6,7 +6,7 @@ import uuid
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import audit_logs, auth, dashboard, disruptions, pipeline, scenarios
+from app.api.routes import audit_logs, auth, dashboard, disruptions, governance, pipeline, rag, scenarios
 from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base
@@ -38,6 +38,8 @@ app.include_router(pipeline.router)
 app.include_router(scenarios.router)
 app.include_router(audit_logs.router)
 app.include_router(dashboard.router)
+app.include_router(governance.router)
+app.include_router(rag.router)
 
 
 @app.on_event("startup")
@@ -95,4 +97,9 @@ def root():
 @app.get("/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "healthy"}
+    from datetime import datetime, timezone
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "1.0.0",
+    }

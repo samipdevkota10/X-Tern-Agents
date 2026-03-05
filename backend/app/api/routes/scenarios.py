@@ -69,6 +69,8 @@ def list_scenarios(
             plan_json=json.loads(s.plan_json),
             score_json=json.loads(s.score_json),
             status=s.status,
+            used_llm=getattr(s, 'used_llm', False) or False,
+            llm_rationale=getattr(s, 'llm_rationale', None),
             created_at=s.created_at,
         )
         for s in scenarios
@@ -108,6 +110,8 @@ def list_pending_scenarios(
             plan_json=json.loads(s.plan_json),
             score_json=json.loads(s.score_json),
             status=s.status,
+            used_llm=getattr(s, 'used_llm', False) or False,
+            llm_rationale=getattr(s, 'llm_rationale', None),
             created_at=s.created_at,
             disruption_type=d.type,
             disruption_severity=d.severity,

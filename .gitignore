@@ -68,3 +68,9 @@ Thumbs.db
 
 # Local backup of old Vite frontend
 frontend-vite/
+
+# Database
+backend/warehouse.db
+
+# Chroma vector DB
+backend/chroma_data/

@@ -26,6 +26,10 @@ langchain-openai>=0.0.5
 langchain-aws>=0.1.0  # For Bedrock integration
 langgraph>=0.0.20  # Multi-agent orchestration
 
+# Vector DB / RAG
+chromadb>=0.4.0  # Vector database for semantic search
+sentence-transformers>=2.2.0  # Embeddings for RAG
+
 # Configuration
 python-dotenv>=1.0.0
 
