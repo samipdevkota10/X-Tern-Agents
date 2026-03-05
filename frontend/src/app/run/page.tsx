@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, CheckCircle2, Play, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Play, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -10,18 +10,21 @@ import type { Disruption, PipelineRunStatus } from "@/lib/types";
 import { startPipeline } from "@/lib/api";
 import { useDisruptions } from "@/hooks/useDisruptions";
 import { usePipelineStatus } from "@/hooks/usePipelineStatus";
+import { useAgentActivity } from "@/hooks/useAgentActivity";
 
 import { GlassCard } from "@/components/shared/GlassCard";
 import { AgentStepper } from "@/components/shared/AgentStepper";
+import { AgentActivityLog } from "@/components/shared/AgentActivityLog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STEPS = [
-  { id: "signal", label: "Signal Intake" },
-  { id: "constraints", label: "Constraint Builder" },
-  { id: "scenarios", label: "Scenario Generator" },
-  { id: "scoring", label: "Tradeoff Scoring" },
+  { id: "signal", label: "Signal Intake", description: "Identifies impacted orders" },
+  { id: "constraints", label: "Constraint Builder", description: "Gathers operational context" },
+  { id: "scenarios", label: "Scenario Generator", description: "Creates response options" },
+  { id: "scoring", label: "Tradeoff Scoring", description: "Ranks by cost/risk" },
+  { id: "router", label: "Router", description: "LLM-driven orchestration" },
 ];
 
 function stepIndexFromStatus(s: PipelineRunStatus | null): number {
@@ -30,9 +33,10 @@ function stepIndexFromStatus(s: PipelineRunStatus | null): number {
   if (step.includes("signal")) return 0;
   if (step.includes("constraint")) return 1;
   if (step.includes("scenario")) return 2;
-  if (step.includes("score")) return 3;
-  if (s.status === "done") return 3;
-  return Math.max(0, Math.min(3, Math.floor((s.progress ?? 0) * 4)));
+  if (step.includes("score") || step.includes("tradeoff")) return 3;
+  if (step.includes("router") || step.includes("supervisor")) return 4;
+  if (step.includes("finalize") || s.status === "completed") return 4;
+  return Math.max(0, Math.min(4, Math.floor((s.progress ?? 0) * 5)));
 }
 
 export default function RunPage() {
@@ -47,6 +51,20 @@ export default function RunPage() {
 
   const status = usePipelineStatus(runId);
   const currentIdx = stepIndexFromStatus(status.status);
+  const isRunning = status.status?.status === "running" || status.status?.status === "pending";
+  const activity = useAgentActivity(runId, isRunning);
+  const [showActivityLog, setShowActivityLog] = React.useState(true);
+
+  // Extract routing trace from final summary
+  const routingTrace = (status.status?.final_summary_json?.routing_trace as Array<{
+    ts: string;
+    from: string;
+    llm_next: string | null;
+    final: string;
+    override: string | null;
+    confidence: number | null;
+    reason: string | null;
+  }>) ?? [];
 
   const effectiveDisruptionId = manual.trim() || selected;
 
@@ -124,13 +142,43 @@ export default function RunPage() {
           </div>
 
           <AgentStepper
-            steps={STEPS.map((s) => ({ id: s.id, label: s.label }))}
+            steps={STEPS.map((s) => ({ id: s.id, label: s.label, description: s.description }))}
             currentStepIndex={currentIdx}
           />
         </div>
 
+        {/* Agent Activity Log */}
+        {runId && (
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowActivityLog(!showActivityLog)}
+              className="flex items-center gap-2 text-xs text-white/70 hover:text-white/90 transition-colors"
+            >
+              {showActivityLog ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+              <span>Agent Activity Details</span>
+              {activity.logs.length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">
+                  {activity.logs.length}
+                </span>
+              )}
+            </button>
+            {showActivityLog && (
+              <AgentActivityLog
+                logs={activity.logs}
+                routingTrace={routingTrace}
+                isRunning={isRunning}
+                expanded={status.status?.status === "completed"}
+              />
+            )}
+          </div>
+        )}
+
         {status.status ? (
-          status.status.status === "done" ? (
+          status.status.status === "completed" ? (
             <GlassCard className="p-4 border border-emerald-500/25 bg-emerald-500/10">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2">

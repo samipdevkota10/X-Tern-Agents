@@ -1,7 +1,7 @@
 """
 Deterministic business rules for scenario generation.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any
 import uuid
 
@@ -146,7 +146,6 @@ def generate_resequence_scenario(
         cap.get("dc") == order["dc"] and not cap.get("downtime_flag", False)
         for cap in capacities
     )
-    
     dtype = _format_disruption_type(disruption["type"])
     description = disruption["details"].get("description", f"{dtype} event")
     priority = order.get("priority", "standard")
