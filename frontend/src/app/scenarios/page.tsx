@@ -66,7 +66,7 @@ export default function ScenariosPage() {
 
   const onApprove = async (id: string, note: string) => {
     try {
-      await approveScenario(id, note);
+      await approveScenario(id, { note });
       toast.success("Scenario approved");
       mutate();
     } catch (e: unknown) {
@@ -76,7 +76,7 @@ export default function ScenariosPage() {
 
   const onReject = async (id: string, note: string) => {
     try {
-      await rejectScenario(id, note);
+      await rejectScenario(id, { note });
       toast.success("Scenario rejected");
       mutate();
     } catch (e: unknown) {

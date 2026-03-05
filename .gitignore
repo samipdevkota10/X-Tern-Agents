@@ -74,3 +74,5 @@ backend/warehouse.db
 
 # Chroma vector DB
 backend/chroma_data/
+
+gitingested_this_repo.txt

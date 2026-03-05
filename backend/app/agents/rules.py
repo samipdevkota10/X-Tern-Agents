@@ -126,6 +126,13 @@ def generate_substitute_scenario(
                     "what_happened": f"{description}. Item {sku} in order {order['order_id']} is unavailable. A compatible substitute {sub_rule['substitute_sku']} is available.",
                     "what_to_do": f"Replace {line['qty']} units of {sku} with {sub_rule['substitute_sku']}. This incurs a ${penalty:.2f} substitution penalty but allows immediate fulfillment.",
                     "how_to_handle": f"1. Verify customer accepts substitution (check order preferences)\n2. Update order line from {sku} to {sub_rule['substitute_sku']}\n3. Reserve {line['qty']} units of substitute\n4. Log substitution for billing adjustment (${penalty:.2f})\n5. Include substitution notice in packing slip",
+                    "substitutions": [
+                        {
+                            "original_sku": sku,
+                            "substitute_sku": sub_rule["substitute_sku"],
+                            "penalty_cost": penalty,
+                        }
+                    ],
                 },
                 "status": "pending",
             })

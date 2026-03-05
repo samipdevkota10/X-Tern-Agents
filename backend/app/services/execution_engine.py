@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.db.models import DecisionLog, Inventory, Order, OrderLine, Scenario
+from app.db.models import DecisionLog, Inventory, Order, OrderLine, Scenario, Substitution
 
 
 def apply_scenario(
@@ -271,6 +271,27 @@ def _apply_substitute(
     changes = []
 
     substitutions = plan.get("substitutions", [])
+    if not substitutions:
+        # Fallback: derive from order lines + substitutions table (e.g. legacy or LLM-generated plans)
+        order_lines = (
+            db.query(OrderLine)
+            .filter(OrderLine.order_id == scenario.order_id)
+            .all()
+        )
+        skus = [line.sku for line in order_lines]
+        sub_rows = (
+            db.query(Substitution)
+            .filter(Substitution.sku.in_(skus))
+            .all()
+        )
+        substitutions = [
+            {
+                "original_sku": row.sku,
+                "substitute_sku": row.substitute_sku,
+                "penalty_cost": row.penalty_cost,
+            }
+            for row in sub_rows
+        ]
     if not substitutions:
         raise ValueError("Substitute plan missing substitutions list")
 
