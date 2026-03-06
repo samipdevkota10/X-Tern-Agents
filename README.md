@@ -15,6 +15,7 @@ A full-stack AI-native Disruption Response Planner with FastAPI backend, multi-a
 - 📋 [Next Steps & Pilot](docs/NEXT_STEPS_AND_PILOT_PLAN.md) - Roadmap and pilot plan
 - 📝 [Example Decision Logs](docs/EXAMPLE_DECISION_LOGS.md) - Audit trail examples
 - 🔧 [MCP Server](docs/MCP_SERVER_DEFINITIONS_AND_USAGE.md) - MCP tools and usage
+- ☁️ [Deploy on EC2](docs/DEPLOY_EC2.md) - Backend deployment on AWS EC2
 
 ## Project Structure
 

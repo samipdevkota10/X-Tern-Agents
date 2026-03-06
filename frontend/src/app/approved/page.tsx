@@ -50,11 +50,11 @@ export default function ApprovedActionsPage() {
 
   const disruptionMap = React.useMemo(() => {
     const map = new Map<string, Disruption>();
-    for (const d of disruptions.disruptions) {
+    for (const d of disruptions) {
       map.set(d.id, d);
     }
     return map;
-  }, [disruptions.disruptions]);
+  }, [disruptions]);
 
   const groups = React.useMemo(
     () => groupByDisruption(scenarios, disruptionMap),

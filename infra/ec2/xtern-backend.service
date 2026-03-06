@@ -1,0 +1,17 @@
+[Unit]
+Description=X-Tern Agents Backend API
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=%h/X-Tern-Agents/backend
+Environment="PATH=%h/X-Tern-Agents/backend/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=%h/X-Tern-Agents/backend"
+EnvironmentFile=%h/X-Tern-Agents/backend/.env
+ExecStart=%h/X-Tern-Agents/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

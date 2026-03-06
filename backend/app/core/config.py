@@ -38,12 +38,14 @@ class Settings:
         "BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0"
     )
 
-    # CORS
+    # CORS (base + extra from CORS_ORIGINS_EXTRA env, comma-separated)
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
+    ] + [
+        o.strip() for o in os.getenv("CORS_ORIGINS_EXTRA", "").split(",") if o.strip()
     ]
 
 
