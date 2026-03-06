@@ -44,7 +44,7 @@ export default function ApprovalsPage() {
   const approve = async (id: string) => {
     const note = notes[id] || "Approved in DisruptIQ";
     try {
-      await approveScenario(id, { note });
+      await approveScenario(id, note);
       toast.success("Approved");
       pending.mutate();
     } catch (e: unknown) {
@@ -55,7 +55,7 @@ export default function ApprovalsPage() {
   const reject = async (id: string) => {
     const note = notes[id] || "Rejected in DisruptIQ";
     try {
-      await rejectScenario(id, { note });
+      await rejectScenario(id, note);
       toast.success("Rejected");
       pending.mutate();
     } catch (e: unknown) {
@@ -72,7 +72,7 @@ export default function ApprovalsPage() {
           description: s.scenario_id,
         });
         try {
-          await approveScenario(s.scenario_id, { note: notes[s.scenario_id] || "Bulk approved in DisruptIQ" });
+          await approveScenario(s.scenario_id, notes[s.scenario_id] || "Bulk approved in DisruptIQ");
         } catch (e: unknown) {
           toast.error(`Failed to approve ${s.scenario_id}`, { description: getErrMsg(e, "Unknown error") });
         }
