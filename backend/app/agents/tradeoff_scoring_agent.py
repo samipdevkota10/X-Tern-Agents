@@ -235,31 +235,37 @@ def tradeoff_scoring_node(state: PipelineState) -> dict[str, Any]:
                             order_line_count=len(order.get("lines", [])) or 1,
                         )
                         
-                        # Validate LLM score
-                        validated_score, adjustments = scorer.validate_llm_score(
-                            llm_score, factors
-                        )
+                        # Validate LLM score (returns a single EnhancedScore)
+                        validated = scorer.validate_llm_score(llm_score, factors)
                         
-                        if adjustments:
+                        # Track whether calibration/adjustments were applied
+                        adjustments = None
+                        if validated.llm_calibrated:
                             llm_adjusted_count += 1
+                            adjustments = {"llm_calibrated": True}
                         llm_validated_count += 1
                         
-                        # Get full enhanced score with confidence intervals
-                        enhanced = scorer.score(factors)
-                        
-                        # Merge LLM rationale with enhanced scoring
+                        # Build final score payload in the same shape used elsewhere
                         final_score = {
-                            **validated_score,
+                            "cost_impact_usd": validated.cost_impact_usd,
+                            "sla_risk": validated.sla_risk,
+                            "complexity": int(round(validated.complexity_normalized * 5)),
+                            "labor_impact_minutes": int(validated.labor_minutes),
+                            "overall_score": validated.overall_score,
+                            # Back-compat: keep weighted_score alias
+                            "weighted_score": validated.overall_score,
+                            "needs_approval": validated.needs_approval,
+                            "confidence": validated.confidence,
                             "confidence_interval": [
-                                enhanced.confidence_interval[0],
-                                enhanced.confidence_interval[1],
+                                validated.score_lower_bound,
+                                validated.score_upper_bound,
                             ],
-                            "risk_adjusted_score": enhanced.risk_adjusted_score,
-                            "score_breakdown": {
-                                factor: getattr(enhanced.factors, factor)
-                                for factor in ["cost_impact", "sla_risk", "complexity", "labor_minutes"]
-                            },
+                            "risk_adjusted_score": validated.risk_adjusted_score,
+                            "risk_tolerance": risk_tolerance.value,
                             "llm_validated": True,
+                            "llm_calibrated": validated.llm_calibrated,
+                            "approval_reasons": validated.approval_reasons,
+                            "risk_factors": validated.risk_factors,
                             "adjustments_applied": adjustments,
                         }
                         
@@ -293,17 +299,24 @@ def tradeoff_scoring_node(state: PipelineState) -> dict[str, Any]:
                 enhanced = scorer.score(factors)
                 
                 score = {
-                    "cost_impact_usd": enhanced.factors.cost_impact,
-                    "sla_risk": enhanced.factors.sla_risk,
-                    "complexity": int(enhanced.factors.complexity),
-                    "labor_impact_minutes": int(enhanced.factors.labor_minutes),
-                    "weighted_score": enhanced.weighted_score,
+                    "cost_impact_usd": enhanced.cost_impact_usd,
+                    "sla_risk": enhanced.sla_risk,
+                    "complexity": int(round(enhanced.complexity_normalized * 5)),
+                    "labor_impact_minutes": int(enhanced.labor_minutes),
+                    "overall_score": enhanced.overall_score,
+                    # Back-compat: keep weighted_score alias
+                    "weighted_score": enhanced.overall_score,
                     "needs_approval": enhanced.needs_approval,
                     "confidence": enhanced.confidence,
-                    "confidence_interval": list(enhanced.confidence_interval),
+                    "confidence_interval": [
+                        enhanced.score_lower_bound,
+                        enhanced.score_upper_bound,
+                    ],
                     "risk_adjusted_score": enhanced.risk_adjusted_score,
                     "risk_tolerance": risk_tolerance.value,
                     "llm_validated": False,
+                    "approval_reasons": enhanced.approval_reasons,
+                    "risk_factors": enhanced.risk_factors,
                 }
                 
                 scenario_with_score = {**scenario, "score_json": score}

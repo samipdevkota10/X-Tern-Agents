@@ -20,6 +20,41 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def _aws_kwargs(region: str) -> dict:
+    """
+    Build boto3 kwargs from environment variables.
+
+    Prefer explicit env credentials when present so a stray AWS_PROFILE doesn't
+    unexpectedly override local dev runs.
+    """
+    kwargs: dict = {"region_name": region}
+    access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    session_token = os.getenv("AWS_SESSION_TOKEN")
+    if access_key:
+        kwargs["aws_access_key_id"] = access_key
+        kwargs["aws_secret_access_key"] = secret_key or ""
+        if session_token:
+            kwargs["aws_session_token"] = session_token
+    return kwargs
+
+
+def _print_dynamo_table_help(*, table_name: str, region: str) -> None:
+    print("  [HINT] DynamoDB table not found.")
+    print(f"         Table:  {table_name}")
+    print(f"         Region: {region}")
+    print("         Fix by creating the table (or set DYNAMO_STATUS_TABLE/AWS_REGION correctly).")
+    print("")
+    print("         Example create-table command:")
+    print(
+        f"           aws dynamodb create-table --region {region} "
+        f"--table-name {table_name} "
+        "--attribute-definitions AttributeName=pipeline_run_id,AttributeType=S AttributeName=step_name,AttributeType=S "
+        "--key-schema AttributeName=pipeline_run_id,KeyType=HASH AttributeName=step_name,KeyType=RANGE "
+        "--billing-mode PAY_PER_REQUEST"
+    )
+
+
 def check_dynamodb() -> bool:
     """Verify DynamoDB pipeline status writes work."""
     use_aws = os.getenv("USE_AWS", "0") == "1"
@@ -34,7 +69,18 @@ def check_dynamodb() -> bool:
         table_name = os.getenv("DYNAMO_STATUS_TABLE", "pipeline_status")
         region = os.getenv("AWS_REGION", "us-east-1")
 
-        dynamodb = boto3.resource("dynamodb", region_name=region)
+        kwargs = _aws_kwargs(region)
+        # Verify the table exists up front to produce a clear error.
+        try:
+            boto3.client("dynamodb", **kwargs).describe_table(TableName=table_name)
+        except ClientError as e:
+            code = e.response.get("Error", {}).get("Code", "")
+            if code in {"ResourceNotFoundException", "RequestedResourceNotFoundException"}:
+                _print_dynamo_table_help(table_name=table_name, region=region)
+                return False
+            raise
+
+        dynamodb = boto3.resource("dynamodb", **kwargs)
         table = dynamodb.Table(table_name)
 
         # Write test item
@@ -57,7 +103,14 @@ def check_dynamodb() -> bool:
         print("  [FAIL] DynamoDB: could not read back test item")
         return False
     except ClientError as e:
-        print(f"  [FAIL] DynamoDB: {e}")
+        code = e.response.get("Error", {}).get("Code", "")
+        if code in {"ResourceNotFoundException", "RequestedResourceNotFoundException"}:
+            _print_dynamo_table_help(
+                table_name=os.getenv("DYNAMO_STATUS_TABLE", "pipeline_status"),
+                region=os.getenv("AWS_REGION", "us-east-1"),
+            )
+        else:
+            print(f"  [FAIL] DynamoDB: {e}")
         return False
     except Exception as e:
         print(f"  [FAIL] DynamoDB: {e}")
@@ -77,10 +130,7 @@ def check_s3() -> bool:
         from botocore.exceptions import ClientError
 
         region = os.getenv("AWS_REGION", "us-east-1")
-        kwargs = {"region_name": region}
-        if os.getenv("AWS_ACCESS_KEY_ID"):
-            kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
-            kwargs["aws_secret_access_key"] = os.getenv("AWS_SECRET_ACCESS_KEY")
+        kwargs = _aws_kwargs(region)
 
         s3 = boto3.client("s3", **kwargs)
 
@@ -121,10 +171,7 @@ def list_recent_artifacts() -> None:
         import boto3
         from botocore.exceptions import ClientError
 
-        kwargs = {"region_name": region}
-        if os.getenv("AWS_ACCESS_KEY_ID"):
-            kwargs["aws_access_key_id"] = os.getenv("AWS_ACCESS_KEY_ID")
-            kwargs["aws_secret_access_key"] = os.getenv("AWS_SECRET_ACCESS_KEY")
+        kwargs = _aws_kwargs(region)
 
         # S3: list pipeline_runs/
         s3 = boto3.client("s3", **kwargs)
@@ -156,7 +203,11 @@ def list_recent_artifacts() -> None:
             else:
                 print("\n  No DynamoDB status items found (run a pipeline with USE_AWS=1 first)")
         except ClientError as e:
-            print(f"\n  Could not scan DynamoDB: {e}")
+            code = e.response.get("Error", {}).get("Code", "")
+            if code in {"ResourceNotFoundException", "RequestedResourceNotFoundException"}:
+                print(f"\n  DynamoDB table not found: {table_name} (region {region})")
+            else:
+                print(f"\n  Could not scan DynamoDB: {e}")
 
     except Exception as e:
         print(f"\n  Could not list artifacts: {e}")

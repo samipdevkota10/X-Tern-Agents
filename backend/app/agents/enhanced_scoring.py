@@ -486,19 +486,38 @@ class EnhancedScorer:
 
 
 def estimate_factors_for_action(
+    *,
     action_type: str,
-    order: dict[str, Any],
-    disruption: dict[str, Any],
-    constraints: dict[str, Any],
+    order: Optional[dict[str, Any]] = None,
+    disruption: Optional[dict[str, Any]] = None,
+    constraints: Optional[dict[str, Any]] = None,
+    # Back-compat (used by tradeoff_scoring_agent.py)
+    order_priority: str = "standard",
+    plan: Optional[dict[str, Any]] = None,
+    order_line_count: int = 1,
 ) -> ScoreFactors:
     """
     Estimate scoring factors for a given action type.
     
     This provides baseline estimates that can be refined by LLM.
     """
-    priority = order.get("priority", "standard")
-    priority_mult = {"critical": 1.5, "expedite": 1.3, "vip": 1.4, "standard": 1.0, "low": 0.7}.get(priority, 1.0)
-    order_lines = len(order.get("lines", [1]))
+    if order is None:
+        order = {"priority": order_priority, "lines": [None] * max(1, int(order_line_count or 1))}
+    if disruption is None:
+        disruption = {}
+    if constraints is None:
+        constraints = {}
+
+    priority = order.get("priority") or order_priority or "standard"
+    priority_mult = {
+        "critical": 1.5,
+        "vip": 1.4,
+        "expedite": 1.3,
+        "expedited": 1.3,
+        "standard": 1.0,
+        "low": 0.7,
+    }.get(priority, 1.0)
+    order_lines = max(1, len(order.get("lines") or [1]))
     
     # Base estimates by action type
     base_estimates = {
@@ -566,6 +585,36 @@ def estimate_factors_for_action(
     # Time pressure from cutoff proximity
     # This would ideally be calculated from actual datetime
     time_pressure = 0.5 if severity >= 4 else 0.3
+
+    # If we have a scenario plan, use deterministic adjustments where available.
+    # This keeps EnhancedScorer factor estimation consistent with scenario fields.
+    if plan is not None and action_type in {"delay", "reroute", "substitute", "resequence"}:
+        try:
+            from app.agents.scoring import (
+                calculate_cost_impact,
+                calculate_labor_impact,
+                calculate_sla_risk,
+            )
+
+            penalty_cost = float(plan.get("penalty_cost", 0.0) or 0.0)
+            transfer_distance = 1 if plan.get("target_dc") else 0
+            cutoff_exceeded = bool(plan.get("cutoff_exceeded", False))
+            availability_sufficient = bool(plan.get("availability_sufficient", True))
+
+            adjusted_cost = float(
+                calculate_cost_impact(action_type, priority, penalty_cost, transfer_distance)
+            )
+            adjusted_sla_risk = float(
+                calculate_sla_risk(action_type, priority, cutoff_exceeded, availability_sufficient)
+            )
+            labor = int(calculate_labor_impact(action_type, int(order_line_count or order_lines or 1)))
+            base = {**base, "labor": labor}
+
+            if cutoff_exceeded:
+                time_pressure = max(time_pressure, 0.8)
+        except Exception:
+            # If deterministic scoring isn't available for some reason, keep baseline estimates.
+            pass
     
     # Adjust customer_impact based on order priority (higher priority = higher impact)
     adjusted_customer_impact = min(1.0, base["customer_impact"] * priority_mult)
@@ -575,7 +624,7 @@ def estimate_factors_for_action(
         sla_confidence=0.75,  # Moderate confidence for estimates
         cost_impact_usd=adjusted_cost,
         cost_confidence=0.8,
-        labor_minutes=base["labor"],
+        labor_minutes=int(base["labor"]),
         labor_confidence=0.85,
         complexity=base["complexity"],
         reversibility=base["reversibility"],
