@@ -171,7 +171,13 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
         db.commit()
 
         # When USE_AWS=1: write final status to DynamoDB and results to S3
-        _write_aws_artifacts(pipeline_run_id, disruption_id, final_summary, status="completed")
+        _write_aws_artifacts(
+            pipeline_run_id,
+            disruption_id,
+            final_summary,
+            scenarios=scenarios,
+            status="completed",
+        )
 
     except Exception as e:
         # Pipeline failed - update status and log error
@@ -212,6 +218,7 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
                     pipeline_run_id,
                     disruption_id,
                     {"error": error_message},
+                    scenarios=[],
                     status="failed",
                 )
 
@@ -221,10 +228,23 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
             print(f"Original error: {error_message}")
 
 
+def _json_safe(obj: Any) -> Any:
+    """Convert object to JSON-serializable form (handles datetime, etc.)."""
+    if hasattr(obj, "isoformat"):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(x) for x in obj]
+    return obj
+
+
 def _write_aws_artifacts(
     pipeline_run_id: str,
     disruption_id: str,
     final_summary: dict[str, Any],
+    *,
+    scenarios: list[dict[str, Any]] | None = None,
     status: str,
 ) -> None:
     """
@@ -235,6 +255,7 @@ def _write_aws_artifacts(
         pipeline_run_id: Pipeline run ID
         disruption_id: Disruption ID
         final_summary: Final summary dict to store
+        scenarios: Full scenario list for S3 persistence (completed runs only)
         status: completed or failed
     """
     if not settings.USE_AWS:
@@ -263,12 +284,14 @@ def _write_aws_artifacts(
             return
 
         key = f"pipeline_runs/{pipeline_run_id}.json"
+        scenarios_ser = _json_safe(scenarios) if scenarios else []
         payload = {
             "pipeline_run_id": pipeline_run_id,
             "disruption_id": disruption_id,
             "status": status,
             "ts_iso": datetime.now(UTC).isoformat(),
-            "final_summary": final_summary,
+            "final_summary": _json_safe(final_summary),
+            "scenarios": scenarios_ser,
         }
         body = json.dumps(payload, indent=2)
 

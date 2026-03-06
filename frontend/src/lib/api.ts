@@ -47,6 +47,11 @@ async function apiFetch<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 401 && !path.includes("/auth/login") && typeof window !== "undefined") {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      throw new Error("Session expired. Please log in again.");
+    }
     const errorBody = await res.json().catch(() => ({}));
     // Backend uses detail.error.message or detail as string/array (FastAPI)
     const msg =

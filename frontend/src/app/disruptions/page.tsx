@@ -51,7 +51,10 @@ export default function DisruptionsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-white">Disruptions Inbox</div>
-          <div className="text-[11px] text-white/50">Filter and inspect incoming disruption signals.</div>
+          <div className="text-[11px] text-white/50">
+            Filter and inspect incoming disruption signals. Disruptions are created manually or by seed scripts—the
+            pipeline runs on existing disruptions and does not create new ones.
+          </div>
         </div>
 
         <CreateDisruptionButton onCreated={() => disruptions.mutate()} />

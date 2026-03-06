@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,14 +54,24 @@ function computeRecommendedScenarioIds(items: Scenario[]): Set<string> {
 export default function ScenariosPage() {
   useRequireAuth();
   const { isManager } = useAuth();
+  const searchParams = useSearchParams();
 
   // Analysts default to Approved; managers default to Pending
   const [statusTab, setStatusTab] = React.useState<StatusTab>(isManager ? "pending" : "approved");
 
+  // Support disruption_id from URL (e.g. when navigating from completed Run)
+  const disruptionIdParam = searchParams.get("disruption_id");
+
   const { scenarios, isLoading, mutate } = useScenarios({
     status: statusTab === "all" ? undefined : statusTab,
+    disruption_id: disruptionIdParam ?? undefined,
   });
   const { disruptions } = useDisruptions();
+
+  // Force refresh when landing with disruption_id (e.g. from completed Run)
+  React.useEffect(() => {
+    if (disruptionIdParam) mutate();
+  }, [disruptionIdParam, mutate]);
 
   // Create a map for quick lookup of disruption by ID
   const disruptionMap = React.useMemo(() => {
@@ -115,7 +126,8 @@ export default function ScenariosPage() {
         <div>
           <div className="text-sm font-semibold text-white">Scenario Comparison</div>
           <div className="text-[11px] text-white/50">
-            Showing recommended plan only (lowest overall_score per order). Grouped by disruption.
+            Showing recommended plan only (lowest overall_score per order). Grouped by disruption. Scenarios are stored in
+            the database and persist when you navigate away.
           </div>
         </div>
         <div className="flex rounded-full border border-white/10 bg-black/20 p-1">

@@ -3,9 +3,15 @@
 Verify AWS integration: DynamoDB pipeline status and S3 pipeline run artifacts.
 
 Usage:
+  cd backend
+  PYTHONPATH=$(pwd) python scripts/verify_aws_integration.py
+
+  Or with explicit env:
   USE_AWS=1 AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \\
   S3_BUCKET_NAME=xtern-agents-bucket DYNAMO_STATUS_TABLE=pipeline_status \\
   PYTHONPATH=$(pwd) python scripts/verify_aws_integration.py
+
+Loads backend/.env if present.
 
 Checks:
   1. DynamoDB: Can write/read pipeline status items
@@ -17,7 +23,13 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _backend_dir)
+_env_path = os.path.join(_backend_dir, ".env")
+if os.path.exists(_env_path):
+    from dotenv import load_dotenv
+
+    load_dotenv(_env_path)
 
 
 def _aws_kwargs(region: str) -> dict:

@@ -13,14 +13,23 @@ export type ScenarioQuery = {
 };
 
 export function useScenarios(query?: ScenarioQuery) {
-  const key = ["scenarios", query] as const;
+  // Normalize query so key is stable (omit undefined values)
+  const normalizedQuery = query
+    ? Object.fromEntries(
+        Object.entries(query).filter(([, v]) => v != null && v !== "")
+      ) as ScenarioQuery
+    : undefined;
+  const key = ["scenarios", normalizedQuery] as const;
 
   const { data, error, isLoading, mutate } = useSWR<Scenario[]>(
     key,
-    async () => {
-      return listScenarios(query);
-    },
-    { refreshInterval: 15000 },
+    () => listScenarios(normalizedQuery),
+    {
+      refreshInterval: 15000,
+      // Keep showing previous scenarios when switching tabs or refetching
+      keepPreviousData: true,
+      dedupingInterval: 5000,
+    }
   );
 
   return {
@@ -34,8 +43,12 @@ export function useScenarios(query?: ScenarioQuery) {
 export function usePendingScenarios() {
   const { data, error, isLoading, mutate } = useSWR<PendingScenarioRow[]>(
     ["scenarios-pending"],
-    async () => listPendingScenarios(),
-    { refreshInterval: 10000 },
+    () => listPendingScenarios(),
+    {
+      refreshInterval: 10000,
+      keepPreviousData: true,
+      dedupingInterval: 5000,
+    },
   );
 
   // Pending endpoint returns enriched scenario rows

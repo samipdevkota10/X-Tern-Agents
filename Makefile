@@ -25,6 +25,8 @@ help:
 	@echo "Testing:"
 	@echo "  make test         - Run all tests"
 	@echo "  make test-backend - Run backend tests only"
+	@echo "  make e2e-aws      - E2E AWS persistence test (backend must be running)"
+	@echo "  make verify-aws   - Verify S3/DynamoDB integration"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make fmt          - Format all code"
@@ -58,6 +60,15 @@ test: test-backend
 
 test-backend:
 	cd $(BACKEND_DIR) && source .venv/bin/activate && pytest -v
+
+# E2E and AWS verification (requires backend running + USE_AWS=1)
+e2e-aws:
+	cd $(BACKEND_DIR) && ( set -a && [ -f .env ] && . .env && set +a ) && \
+		PYTHONPATH=$(PWD)/$(BACKEND_DIR) python3 scripts/e2e_aws_persistence_test.py
+
+verify-aws:
+	cd $(BACKEND_DIR) && ( set -a && [ -f .env ] && . .env && set +a ) && \
+		PYTHONPATH=$(PWD)/$(BACKEND_DIR) python3 scripts/verify_aws_integration.py
 
 # Formatting
 fmt: fmt-backend fmt-frontend

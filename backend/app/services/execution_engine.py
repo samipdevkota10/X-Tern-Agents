@@ -80,6 +80,20 @@ def apply_scenario(
     # Mark scenario as approved
     scenario.status = "approved"
 
+    # Discard all other pending scenarios for this order (superseded by approval)
+    other_pending = (
+        db.query(Scenario)
+        .filter(
+            Scenario.disruption_id == scenario.disruption_id,
+            Scenario.order_id == scenario.order_id,
+            Scenario.scenario_id != scenario_id,
+            Scenario.status == "pending",
+        )
+        .all()
+    )
+    for other in other_pending:
+        other.status = "rejected"
+
     # Create decision log entry
     log_id = str(uuid.uuid4())
     decision_log = DecisionLog(

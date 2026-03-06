@@ -242,7 +242,10 @@ export default function RunPage() {
                   </div>
                 </div>
                 <Button
-                  onClick={() => router.push("/scenarios")}
+                  onClick={() => {
+                    const disruptionId = status.status?.disruption_id;
+                    router.push(disruptionId ? `/scenarios?disruption_id=${disruptionId}` : "/scenarios");
+                  }}
                   className="rounded-full bg-cyan-400 text-slate-950 hover:bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.3)]"
                 >
                   View Scenarios
