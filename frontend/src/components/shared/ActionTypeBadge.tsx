@@ -46,6 +46,16 @@ function mapAction(action: ScenarioActionType | string): { label: string; classN
         label: "Resequence",
         className: "bg-cyan-400/15 text-cyan-200 border-cyan-400/30",
       };
+    case "expedite":
+      return {
+        label: "Expedite",
+        className: "bg-rose-500/15 text-rose-200 border-rose-500/30",
+      };
+    case "split":
+      return {
+        label: "Split",
+        className: "bg-sky-500/15 text-sky-200 border-sky-500/30",
+      };
     default:
       return {
         label: String(action),

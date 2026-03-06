@@ -62,6 +62,12 @@ class DisruptionResponse(BaseModel):
         from_attributes = True
 
 
+class DisruptionStatusUpdate(BaseModel):
+    """Request to update disruption status."""
+
+    status: str = Field(..., pattern="^(open|resolved)$")
+
+
 # ============================================================================
 # Pipeline Schemas
 # ============================================================================

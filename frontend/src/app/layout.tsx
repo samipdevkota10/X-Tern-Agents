@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/shared/AppShell";
 import { AuthProvider } from "@/lib/auth";
+import { PipelineCompletionNotifier } from "@/components/shared/PipelineCompletionNotifier";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <TooltipProvider>
             <AuthProvider>
+              <PipelineCompletionNotifier />
               <AppShell>{props.children}</AppShell>
               <Toaster
                 position="bottom-right"

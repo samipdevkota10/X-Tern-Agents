@@ -10,16 +10,17 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, ArrowRight, DollarSign, ShieldCheck, TriangleAlert } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, DollarSign, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useRequireAuth } from "@/lib/auth";
-import { getDashboard } from "@/lib/api";
+import { getDashboard, listScenarios } from "@/lib/api";
 import type { DashboardResponse, Scenario } from "@/lib/types";
 import { useDisruptions } from "@/hooks/useDisruptions";
 import { usePendingScenarios } from "@/hooks/useScenarios";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { KpiCardSkeleton, TableSkeleton } from "@/components/shared/Skeletons";
+import { ActionTypeBadge } from "@/components/shared/ActionTypeBadge";
 import { SeverityBadge } from "@/components/shared/SeverityBadge";
 import { Button } from "@/components/ui/button";
 
@@ -58,8 +59,14 @@ export default function DashboardPage() {
   const dash = useSWR<DashboardResponse>("dashboard", getDashboard, { refreshInterval: 15000 });
   const disruptions = useDisruptions({ status: "open" });
   const pending = usePendingScenarios();
+  const approvedScenarios = useSWR<Scenario[]>(
+    "scenarios-approved",
+    () => listScenarios({ status: "approved", limit: 5 }),
+    { refreshInterval: 15000 },
+  );
 
   const pendingScenarios = pending.scenarios as Scenario[];
+  const recentApproved = approvedScenarios.data ?? [];
   const slaSeries = React.useMemo(() => bucketSlaRiskByHour(pendingScenarios), [pendingScenarios]);
 
   const ordersAtRisk = React.useMemo(() => new Set(pendingScenarios.map((s) => s.order_id)).size, [pendingScenarios]);
@@ -186,22 +193,23 @@ export default function DashboardPage() {
         </div>
       </GlassCard>
 
-      <GlassCard className="p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-sm font-semibold text-white">Recent Disruptions</div>
-            <div className="text-[11px] text-white/50">Last 5 disruptions (from API).</div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <GlassCard className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-white">Recent Disruptions</div>
+              <div className="text-[11px] text-white/50">Last 5 disruptions (from API).</div>
+            </div>
+            <Button
+              variant="ghost"
+              className="text-cyan-200 hover:bg-white/10 hover:text-cyan-100 transition-all duration-200"
+              onClick={() => router.push("/disruptions")}
+            >
+              View all <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            className="text-cyan-200 hover:bg-white/10 hover:text-cyan-100 transition-all duration-200"
-            onClick={() => router.push("/disruptions")}
-          >
-            View all <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
 
-        {disruptions.isLoading ? (
+          {disruptions.isLoading ? (
           <TableSkeleton rows={5} />
         ) : (
           <div className="max-h-72 overflow-auto">
@@ -245,7 +253,63 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </GlassCard>
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-semibold text-white flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                Recent Approved Actions
+              </div>
+              <div className="text-[11px] text-white/50">Manager decisions now in effect.</div>
+            </div>
+            <Button
+              variant="ghost"
+              className="text-cyan-200 hover:bg-white/10 hover:text-cyan-100 transition-all duration-200"
+              onClick={() => router.push("/approved")}
+            >
+              View all <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+
+          {approvedScenarios.isLoading ? (
+            <TableSkeleton rows={5} />
+          ) : (
+            <div className="max-h-72 overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="text-[11px] uppercase tracking-wide text-white/40">
+                  <tr className="border-b border-white/10">
+                    <th className="px-2 py-2 text-left font-medium">Order</th>
+                    <th className="px-2 py-2 text-left font-medium">Action</th>
+                    <th className="px-2 py-2 text-right font-medium">When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentApproved.map((s) => (
+                    <tr key={s.scenario_id} className="border-b border-white/5 hover:bg-white/5 transition-all duration-200">
+                      <td className="px-2 py-2 font-mono text-white/80">{s.order_id}</td>
+                      <td className="px-2 py-2">
+                        <ActionTypeBadge action={s.action_type} />
+                      </td>
+                      <td className="px-2 py-2 text-right text-white/50">
+                        {new Date(s.created_at).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {recentApproved.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-10 text-center text-xs text-white/40">
+                        No approved actions yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </GlassCard>
+      </div>
     </div>
   );
 }

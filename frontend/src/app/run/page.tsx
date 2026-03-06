@@ -9,7 +9,12 @@ import { useRequireAuth } from "@/lib/auth";
 import type { Disruption, PipelineRunStatus } from "@/lib/types";
 import { runPipeline } from "@/lib/api";
 import { useDisruptions } from "@/hooks/useDisruptions";
-import { usePipelineStatus } from "@/hooks/usePipelineStatus";
+import {
+  usePipelineStatus,
+  setStoredPipelineRunId,
+  clearStoredPipelineRunId,
+  getStoredPipelineRunId,
+} from "@/hooks/usePipelineStatus";
 import { useAgentActivity } from "@/hooks/useAgentActivity";
 
 import { GlassCard } from "@/components/shared/GlassCard";
@@ -46,13 +51,23 @@ export default function RunPage() {
   const disruptions = useDisruptions({ status: "open" });
   const [selected, setSelected] = React.useState<string>("");
   const [manual, setManual] = React.useState<string>("");
-  const [runId, setRunId] = React.useState<string | null>(null);
+  const [runId, setRunId] = React.useState<string | null>(() =>
+    typeof window !== "undefined" ? getStoredPipelineRunId() : null
+  );
   const [starting, setStarting] = React.useState(false);
 
   const status = usePipelineStatus(runId);
   const currentIdx = stepIndexFromStatus(status.status);
-  const isRunning = status.status?.status === "running" || status.status?.status === "pending";
-  const activity = useAgentActivity(runId, isRunning);
+  const isRunning =
+    status.status?.status === "running" ||
+    status.status?.status === "queued" ||
+    status.status?.status === "pending";
+  const isComplete =
+    status.status?.status === "done" ||
+    status.status?.status === "needs_review" ||
+    status.status?.status === "completed";
+  const isFailed = status.status?.status === "failed";
+  const activity = useAgentActivity(status.runId ?? runId, isRunning);
   const [showActivityLog, setShowActivityLog] = React.useState(true);
 
   // Extract routing trace from final summary
@@ -77,13 +92,44 @@ export default function RunPage() {
     try {
       const res = await runPipeline(effectiveDisruptionId);
       setRunId(res.pipeline_run_id);
-      toast.success("Pipeline started.");
+      setStoredPipelineRunId(res.pipeline_run_id);
+      toast.success("Pipeline started. It will continue in the background if you switch tabs.");
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to start pipeline");
     } finally {
       setStarting(false);
     }
   };
+
+  // Toast when pipeline completes (works even if user switched tabs and came back)
+  const prevStatusRef = React.useRef<string | undefined>();
+  React.useEffect(() => {
+    const s = status.status?.status;
+    const wasRunning =
+      prevStatusRef.current === "running" ||
+      prevStatusRef.current === "queued" ||
+      prevStatusRef.current === "pending";
+    if (s === "done" || s === "needs_review" || s === "completed") {
+      if (wasRunning) {
+        const count = (status.status?.final_summary_json as Record<string, unknown>)
+          ?.scenarios_count as number | undefined;
+        toast.success(
+          `Pipeline complete! ${typeof count === "number" ? `${count} scenarios` : "Scenarios"} generated.`,
+          { duration: 5000 }
+        );
+        clearStoredPipelineRunId();
+      }
+      prevStatusRef.current = s;
+    } else if (s === "failed") {
+      if (wasRunning) {
+        toast.error("Pipeline failed. Check the Run Planner for details.");
+        clearStoredPipelineRunId();
+      }
+      prevStatusRef.current = s;
+    } else {
+      prevStatusRef.current = s;
+    }
+  }, [status.status?.status, status.status?.final_summary_json]);
 
   const summary = (status.status?.final_summary_json ?? {}) as Record<string, unknown>;
   const scenariosCount = typeof summary.scenarios_count === "number" ? summary.scenarios_count : null;
@@ -134,9 +180,9 @@ export default function RunPage() {
               {starting ? "Starting…" : "Run Pipeline"}
             </Button>
 
-            {runId ? (
+            {(runId || status.runId) ? (
               <div className="text-[11px] text-white/50">
-                Run ID: <span className="font-mono text-white/70">{runId}</span>
+                Run ID: <span className="font-mono text-white/70">{runId || status.runId}</span>
               </div>
             ) : null}
           </div>
@@ -148,7 +194,7 @@ export default function RunPage() {
         </div>
 
         {/* Agent Activity Log */}
-        {runId && (
+        {(runId || status.runId) && (
           <div className="space-y-2">
             <button
               onClick={() => setShowActivityLog(!showActivityLog)}
@@ -171,14 +217,14 @@ export default function RunPage() {
                 logs={activity.logs}
                 routingTrace={routingTrace}
                 isRunning={isRunning}
-                expanded={status.status?.status === "completed"}
+                expanded={isComplete}
               />
             )}
           </div>
         )}
 
         {status.status ? (
-          status.status.status === "completed" ? (
+          isComplete ? (
             <GlassCard className="p-4 border border-emerald-500/25 bg-emerald-500/10">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-start gap-2">
@@ -199,7 +245,7 @@ export default function RunPage() {
                 </Button>
               </div>
             </GlassCard>
-          ) : status.status.status === "failed" ? (
+          ) : isFailed ? (
             <GlassCard className="p-4 border border-rose-500/25 bg-rose-500/10">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-5 w-5 text-rose-300" />

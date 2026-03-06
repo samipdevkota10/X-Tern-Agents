@@ -13,6 +13,9 @@ import { useDisruptions } from "@/hooks/useDisruptions";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { ScenarioCard } from "@/components/shared/ScenarioCard";
 import { CardGridSkeleton } from "@/components/shared/Skeletons";
+import { cn } from "@/lib/utils";
+
+type StatusTab = "pending" | "approved" | "rejected" | "all";
 
 type Group = {
   disruption_id: string;
@@ -49,7 +52,12 @@ export default function ScenariosPage() {
   useRequireAuth();
   const { isManager } = useAuth();
 
-  const { scenarios, isLoading, mutate } = useScenarios();
+  // Analysts default to Approved; managers default to Pending
+  const [statusTab, setStatusTab] = React.useState<StatusTab>(isManager ? "pending" : "approved");
+
+  const { scenarios, isLoading, mutate } = useScenarios({
+    status: statusTab === "all" ? undefined : statusTab,
+  });
   const { disruptions } = useDisruptions();
 
   // Create a map for quick lookup of disruption by ID
@@ -84,12 +92,38 @@ export default function ScenariosPage() {
     }
   };
 
+  const tabs: { key: StatusTab; label: string }[] = [
+    { key: "pending", label: "Pending" },
+    { key: "approved", label: "Approved" },
+    { key: "rejected", label: "Rejected" },
+    { key: "all", label: "All" },
+  ];
+
   return (
     <div className="space-y-4">
-      <div>
-        <div className="text-sm font-semibold text-white">Scenario Comparison</div>
-        <div className="text-[11px] text-white/50">
-          Grouped by disruption. Recommended plan is the lowest overall_score per order.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-white">Scenario Comparison</div>
+          <div className="text-[11px] text-white/50">
+            Grouped by disruption. Recommended plan is the lowest overall_score per order.
+          </div>
+        </div>
+        <div className="flex rounded-full border border-white/10 bg-black/20 p-1">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setStatusTab(t.key)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-all duration-200",
+                statusTab === t.key
+                  ? "bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
+                  : "text-white/60 hover:bg-white/10 hover:text-white",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -97,7 +131,9 @@ export default function ScenariosPage() {
         <CardGridSkeleton count={6} />
       ) : groups.length === 0 ? (
         <div className="glass-card p-8 text-center text-xs text-white/50">
-          No scenarios available. Run the planner first.
+          {statusTab === "all"
+            ? "No scenarios available. Run the planner first."
+            : `No ${statusTab} scenarios. Try another tab or run the planner first.`}
         </div>
       ) : (
         <div className="space-y-3">

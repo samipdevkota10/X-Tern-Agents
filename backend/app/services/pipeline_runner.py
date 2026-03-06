@@ -1,6 +1,7 @@
 """
 Pipeline runner service for executing LangGraph multi-agent pipeline.
 Includes TRiSM (Trust, Risk, Security Management) governance evaluation.
+Writes pipeline status to DynamoDB and results to S3 when USE_AWS=1.
 """
 import json
 import traceback
@@ -10,6 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.models import DecisionLog, PipelineRun
 from app.governance.trism import AIGovernanceFramework
 
@@ -168,6 +170,9 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
         pipeline_run.final_summary_json = json.dumps(final_summary)
         db.commit()
 
+        # When USE_AWS=1: write final status to DynamoDB and results to S3
+        _write_aws_artifacts(pipeline_run_id, disruption_id, final_summary, status="completed")
+
     except Exception as e:
         # Pipeline failed - update status and log error
         error_message = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
@@ -202,10 +207,89 @@ def run_pipeline(db: Session, pipeline_run_id: str, disruption_id: str) -> None:
                 db.add(decision_log)
                 db.commit()
 
+                # When USE_AWS=1: write failure status to DynamoDB (no S3 for failed runs)
+                _write_aws_artifacts(
+                    pipeline_run_id,
+                    disruption_id,
+                    {"error": error_message},
+                    status="failed",
+                )
+
         except Exception as commit_error:
             # Even error handling failed - log to console
             print(f"Failed to update pipeline status: {commit_error}")
             print(f"Original error: {error_message}")
+
+
+def _write_aws_artifacts(
+    pipeline_run_id: str,
+    disruption_id: str,
+    final_summary: dict[str, Any],
+    status: str,
+) -> None:
+    """
+    Write pipeline artifacts to AWS (DynamoDB + S3) when USE_AWS=1.
+    Non-fatal: logs errors but never raises.
+
+    Args:
+        pipeline_run_id: Pipeline run ID
+        disruption_id: Disruption ID
+        final_summary: Final summary dict to store
+        status: completed or failed
+    """
+    if not settings.USE_AWS:
+        return
+
+    # 1. DynamoDB: write final pipeline status
+    try:
+        from app.aws.dynamo_status import write_status_safe
+
+        write_status_safe(
+            pipeline_run_id,
+            "pipeline_complete",
+            status,
+            {"disruption_id": disruption_id},
+        )
+    except Exception as e:
+        print(f"DynamoDB pipeline status write failed (non-fatal): {e}")
+
+    # 2. S3: store pipeline run result JSON (for completed and failed - audit trail)
+    try:
+        import boto3
+        from botocore.exceptions import ClientError
+
+        bucket = settings.S3_BUCKET_NAME
+        if not bucket:
+            return
+
+        key = f"pipeline_runs/{pipeline_run_id}.json"
+        payload = {
+            "pipeline_run_id": pipeline_run_id,
+            "disruption_id": disruption_id,
+            "status": status,
+            "ts_iso": datetime.now(UTC).isoformat(),
+            "final_summary": final_summary,
+        }
+        body = json.dumps(payload, indent=2)
+
+        kwargs = {"region_name": settings.AWS_REGION}
+        if settings.AWS_ACCESS_KEY_ID:
+            kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+            kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+
+        s3 = boto3.client("s3", **kwargs)
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=body.encode("utf-8"),
+            ContentType="application/json",
+        )
+    except ImportError:
+        pass  # boto3 not installed
+    except ClientError as e:
+        print(f"S3 pipeline result write failed (non-fatal): {e}")
+    except Exception as e:
+        print(f"S3 write unexpected error (non-fatal): {e}")
 
 
 def _calculate_kpis(recommendations: list[dict[str, Any]]) -> dict[str, float]:

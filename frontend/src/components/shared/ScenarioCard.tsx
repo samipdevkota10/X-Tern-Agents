@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import { toast } from "sonner";
 
 import type { Scenario } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -48,19 +49,29 @@ export function ScenarioCard(props: {
     ? "AI Reasoning (AWS Bedrock + RAG)"
     : "Rule-based Analysis";
 
-  const approve = async () => {
+  const approve = async (e?: React.MouseEvent) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (busy || scenario.status !== "pending") return;
     setBusy("approve");
     try {
-      await props.onApprove(note || "Approved in DisruptIQ");
+      await props.onApprove(note.trim() || "Approved in DisruptIQ");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to approve");
     } finally {
       setBusy(null);
     }
   };
 
-  const reject = async () => {
+  const reject = async (e?: React.MouseEvent) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    if (busy || scenario.status !== "pending") return;
     setBusy("reject");
     try {
-      await props.onReject(note || "Rejected in DisruptIQ");
+      await props.onReject(note.trim() || "Rejected in DisruptIQ");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reject");
     } finally {
       setBusy(null);
     }
@@ -139,19 +150,23 @@ export function ScenarioCard(props: {
             {isManager ? (
               <>
                 <Button
+                  type="button"
                   size="sm"
-                  className="h-8 rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all duration-200"
-                  onClick={approve}
+                  className="h-8 rounded-full bg-emerald-500 text-slate-950 hover:bg-emerald-400 transition-all duration-200 cursor-pointer"
+                  onClick={(e) => approve(e)}
                   disabled={busy !== null || scenario.status !== "pending"}
+                  aria-label="Approve scenario"
                 >
                   {busy === "approve" ? "Approving…" : "Approve"}
                 </Button>
                 <Button
+                  type="button"
                   size="sm"
                   variant="destructive"
-                  className="h-8 rounded-full transition-all duration-200"
-                  onClick={reject}
+                  className="h-8 rounded-full transition-all duration-200 cursor-pointer"
+                  onClick={(e) => reject(e)}
                   disabled={busy !== null || scenario.status !== "pending"}
+                  aria-label="Reject scenario"
                 >
                   {busy === "reject" ? "Rejecting…" : "Reject"}
                 </Button>

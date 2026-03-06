@@ -27,7 +27,10 @@ class Settings:
     # AWS Integration
     USE_AWS: bool = os.getenv("USE_AWS", "0") == "1"
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     DYNAMO_STATUS_TABLE: str = os.getenv("DYNAMO_STATUS_TABLE", "pipeline_status")
+    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "xtern-agents-bucket")
     BEDROCK_MODEL_ID: str = os.getenv(
         "BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0"
     )

@@ -9,7 +9,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.schemas import DisruptionCreate, DisruptionResponse
+from app.api.schemas import DisruptionCreate, DisruptionResponse, DisruptionStatusUpdate
 from app.core.deps import get_current_user, get_db
 from app.db.models import Disruption, User
 
@@ -127,6 +127,43 @@ def get_disruption(
                 }
             },
         )
+
+    return DisruptionResponse(
+        id=disruption.id,
+        type=disruption.type,
+        severity=disruption.severity,
+        timestamp=disruption.timestamp,
+        details_json=json.loads(disruption.details_json),
+        status=disruption.status,
+    )
+
+
+@router.patch("/{disruption_id}", response_model=DisruptionResponse)
+def update_disruption_status(
+    disruption_id: str,
+    request: DisruptionStatusUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> DisruptionResponse:
+    """
+    Update a disruption's status (open/resolved).
+    """
+    disruption = db.query(Disruption).filter(Disruption.id == disruption_id).first()
+
+    if not disruption:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": {
+                    "code": "DISRUPTION_NOT_FOUND",
+                    "message": f"Disruption {disruption_id} not found",
+                }
+            },
+        )
+
+    disruption.status = request.status
+    db.commit()
+    db.refresh(disruption)
 
     return DisruptionResponse(
         id=disruption.id,

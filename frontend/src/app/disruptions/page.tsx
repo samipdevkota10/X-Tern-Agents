@@ -5,7 +5,7 @@ import { AlertTriangle, Eye, Plus } from "lucide-react";
 
 import { useRequireAuth } from "@/lib/auth";
 import type { Disruption, DisruptionCreateRequest, DisruptionType, Scenario } from "@/lib/types";
-import { createDisruption } from "@/lib/api";
+import { createDisruption, updateDisruptionStatus } from "@/lib/api";
 import { useDisruptions } from "@/hooks/useDisruptions";
 import { usePendingScenarios } from "@/hooks/useScenarios";
 import { toast } from "sonner";
@@ -211,11 +211,55 @@ export default function DisruptionsPage() {
                     )}
                   </div>
                 </div>
+                <DisruptionStatusActions
+                  disruption={selected}
+                  onUpdated={(updated) => {
+                    setSelected(updated);
+                    disruptions.mutate();
+                    toast.success(updated.status === "resolved" ? "Marked as resolved" : "Reopened");
+                  }}
+                />
               </div>
             </>
           ) : null}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function DisruptionStatusActions(props: {
+  disruption: Disruption;
+  onUpdated: (d: Disruption) => void;
+}) {
+  const [loading, setLoading] = React.useState(false);
+  const { disruption, onUpdated } = props;
+  const newStatus = disruption.status === "open" ? "resolved" : "open";
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      const updated = await updateDisruptionStatus(disruption.id, newStatus);
+      onUpdated(updated);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to update status";
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="pt-2 border-t border-white/10">
+      <Button
+        variant="outline"
+        size="sm"
+        className="border-white/20 text-white/90 hover:bg-white/10"
+        onClick={handleClick}
+        disabled={loading}
+      >
+        {loading ? "Updating…" : disruption.status === "open" ? "Mark as Resolved" : "Reopen"}
+      </Button>
     </div>
   );
 }

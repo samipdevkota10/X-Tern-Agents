@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
+  CheckCircle2,
   ClipboardList,
   History,
   LayoutDashboard,
@@ -28,6 +29,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/disruptions", label: "Disruptions", icon: AlertTriangle },
   { href: "/scenarios", label: "Scenarios", icon: Sparkles },
+  { href: "/approved", label: "Approved Actions", icon: CheckCircle2 },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck, managerOnly: true },
   { href: "/audit", label: "Audit Log", icon: History },
   { href: "/run", label: "Run Planner", icon: ClipboardList },

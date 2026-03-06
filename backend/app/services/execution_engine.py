@@ -70,6 +70,10 @@ def apply_scenario(
         changes_summary["changes"] = _apply_substitute(db, scenario, plan)
     elif action_type == "resequence":
         changes_summary["changes"] = _apply_resequence(db, scenario, plan)
+    elif action_type == "expedite":
+        changes_summary["changes"] = _apply_expedite(db, scenario, plan)
+    elif action_type == "split":
+        changes_summary["changes"] = _apply_split(db, scenario, plan)
     else:
         raise ValueError(f"Unknown action type: {action_type}")
 
@@ -325,6 +329,104 @@ def _apply_substitute(
                     "penalty_cost": sub.get("penalty_cost", 0.0),
                 }
             )
+
+    return changes
+
+
+def _apply_expedite(
+    db: Session, scenario: Scenario, plan: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """
+    Apply expedite action: prioritize order for faster fulfillment.
+
+    Args:
+        db: Database session
+        scenario: Scenario object
+        plan: Plan JSON dict
+
+    Returns:
+        List of changes made
+    """
+    order = db.query(Order).filter(Order.order_id == scenario.order_id).first()
+    if not order:
+        raise ValueError(f"Order {scenario.order_id} not found")
+
+    changes = []
+
+    # Prioritize in work queue and mark as planned for expedited handling
+    old_priority = order.sequence_priority
+    order.sequence_priority = 1  # 1 = highest priority
+    changes.append(
+        {
+            "field": "sequence_priority",
+            "old_value": old_priority,
+            "new_value": 1,
+            "description": "Expedited - prioritized for fast fulfillment",
+        }
+    )
+
+    old_status = order.status
+    order.status = "planned"
+    changes.append(
+        {
+            "field": "status",
+            "old_value": old_status,
+            "new_value": "planned",
+        }
+    )
+
+    return changes
+
+
+def _apply_split(
+    db: Session, scenario: Scenario, plan: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """
+    Apply split action: approve partial ship now + backorder for out-of-stock items.
+
+    Records the split plan (ship available now, backorder rest) for warehouse execution.
+    Does not modify inventory/order lines directly - warehouse staff executes per plan.
+
+    Args:
+        db: Database session
+        scenario: Scenario object
+        plan: Plan JSON dict with summary, what_happened, what_to_do
+
+    Returns:
+        List of changes made
+    """
+    order = db.query(Order).filter(Order.order_id == scenario.order_id).first()
+    if not order:
+        raise ValueError(f"Order {scenario.order_id} not found")
+
+    changes = []
+
+    # Mark order as planned for split fulfillment - warehouse will execute per plan
+    old_status = order.status
+    order.status = "planned"
+    changes.append(
+        {
+            "field": "status",
+            "old_value": old_status,
+            "new_value": "planned",
+            "description": "Split shipment approved - partial ship now, backorder rest",
+        }
+    )
+
+    # Record the split plan for warehouse execution (no inventory/line changes here)
+    split_plan = {
+        "summary": plan.get("summary", "Split: ship available now, backorder out-of-stock"),
+        "what_happened": plan.get("what_happened"),
+        "what_to_do": plan.get("what_to_do"),
+    }
+    changes.append(
+        {
+            "type": "split_plan_approved",
+            "order_id": scenario.order_id,
+            "plan": split_plan,
+            "description": "Approved for warehouse: execute partial ship + backorder per plan",
+        }
+    )
 
     return changes
 

@@ -27,6 +27,8 @@ You can use **either** an IAM user (with access keys) or an IAM role (EC2, ECS, 
 - **Minimum permissions for this project:**
   - DynamoDB:
     - `dynamodb:PutItem` on the status table (see section 3).
+  - S3 (if you enable pipeline result storage):
+    - `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject` on the pipeline results bucket (see section 3b).
   - Bedrock (if you enable LLM explanations):
     - `bedrock:InvokeModel` for the chosen model in the chosen region.
   - RDS:
@@ -80,6 +82,21 @@ The backend needs permission to **put items** into this table:
 ```
 
 If you use additional DynamoDB APIs (e.g., reading status), you can expand this policy.
+
+---
+
+## 3b. S3 Bucket for Pipeline Run Artifacts (Optional)
+
+When `USE_AWS=1`, the pipeline runner writes each run's final summary to S3 for audit and replay.
+
+- **Bucket name**: controlled by `S3_BUCKET_NAME` (default: `xtern-agents-bucket`).
+- **Key pattern**: `pipeline_runs/{pipeline_run_id}.json`
+- **Content**: JSON with `pipeline_run_id`, `disruption_id`, `status`, `ts_iso`, and `final_summary`.
+
+Create an S3 bucket in your region and ensure your IAM principal has:
+- `s3:PutObject`
+- `s3:GetObject`
+- `s3:ListBucket` (for verification scripts)
 
 ---
 
@@ -141,6 +158,7 @@ export DATABASE_URL=sqlite:///./warehouse.db
 export USE_AWS=0              # 0=local dev (no AWS calls), 1=AWS enabled
 export AWS_REGION=us-east-1   # Must match your AWS region
 export DYNAMO_STATUS_TABLE=pipeline_status
+export S3_BUCKET_NAME=xtern-agents-bucket   # Pipeline run artifacts when USE_AWS=1
 
 # Bedrock LLM (optional)
 export BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
@@ -167,6 +185,13 @@ PYTHONPATH=$(pwd) python scripts/run_pipeline_once.py
 You should then see:
 
 - DynamoDB items created in the status table for each pipeline step.
+- S3 objects at `s3://{bucket}/pipeline_runs/{pipeline_run_id}.json` for each completed or failed run.
 - Bedrock‑generated explanations in the pipeline summary (if Bedrock is enabled and reachable).
 - All existing local behavior preserved when you switch `USE_AWS` back to `0`.
+
+To verify AWS integration, run:
+```bash
+USE_AWS=1 AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \\
+S3_BUCKET_NAME=xtern-agents-bucket PYTHONPATH=$(pwd) python scripts/verify_aws_integration.py
+```
 
