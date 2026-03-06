@@ -50,7 +50,7 @@ export function PipelineCompletionNotifier() {
     }
   );
 
-  const prevStatusRef = React.useRef<string | undefined>();
+  const prevStatusRef = React.useRef<string | undefined>(undefined);
 
   React.useEffect(() => {
     if (!data || !runId) return;
