@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import useSWR from "swr";
 
 import type { PipelineRunStatus } from "@/lib/types";
@@ -23,7 +24,12 @@ export function clearStoredPipelineRunId(): void {
 }
 
 export function usePipelineStatus(runId?: string | null) {
-  const stored = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+  // Defer localStorage read to after mount to avoid server/client hydration mismatch
+  const [stored, setStored] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setStored(getStoredPipelineRunId());
+  }, []);
+
   const effectiveRunId = runId || stored;
 
   const { data, error, isLoading, mutate } = useSWR<PipelineRunStatus>(

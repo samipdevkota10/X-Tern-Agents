@@ -51,10 +51,14 @@ export default function RunPage() {
   const disruptions = useDisruptions({ status: "open" });
   const [selected, setSelected] = React.useState<string>("");
   const [manual, setManual] = React.useState<string>("");
-  const [runId, setRunId] = React.useState<string | null>(() =>
-    typeof window !== "undefined" ? getStoredPipelineRunId() : null
-  );
+  const [runId, setRunId] = React.useState<string | null>(null);
   const [starting, setStarting] = React.useState(false);
+
+  // Restore stored run ID after mount to avoid hydration mismatch (localStorage only exists on client)
+  React.useEffect(() => {
+    const stored = getStoredPipelineRunId();
+    if (stored) setRunId(stored);
+  }, []);
 
   const status = usePipelineStatus(runId);
   const currentIdx = stepIndexFromStatus(status.status);
