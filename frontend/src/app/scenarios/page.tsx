@@ -32,7 +32,9 @@ function groupByDisruption(items: Scenario[], disruptionMap: Map<string, Disrupt
   return Array.from(map.entries()).map(([disruption_id, scenarios]) => ({
     disruption_id,
     disruption_type: disruptionMap.get(disruption_id)?.type,
-    scenarios: scenarios.sort((a, b) => (a.created_at > b.created_at ? -1 : 1)),
+    scenarios: [...scenarios].sort((a, b) =>
+      (a.order_id ?? "").localeCompare(b.order_id ?? "", undefined, { numeric: true })
+    ),
   }));
 }
 
@@ -69,8 +71,16 @@ export default function ScenariosPage() {
     return map;
   }, [disruptions]);
 
-  const groups = React.useMemo(() => groupByDisruption(scenarios, disruptionMap), [scenarios, disruptionMap]);
   const recommendedIds = React.useMemo(() => computeRecommendedScenarioIds(scenarios), [scenarios]);
+  // Show only the recommended scenario (lowest overall_score) per order
+  const recommendedScenarios = React.useMemo(
+    () => scenarios.filter((s) => recommendedIds.has(s.scenario_id)),
+    [scenarios, recommendedIds],
+  );
+  const groups = React.useMemo(
+    () => groupByDisruption(recommendedScenarios, disruptionMap),
+    [recommendedScenarios, disruptionMap],
+  );
 
   const onApprove = async (id: string, note: string) => {
     try {
@@ -105,7 +115,7 @@ export default function ScenariosPage() {
         <div>
           <div className="text-sm font-semibold text-white">Scenario Comparison</div>
           <div className="text-[11px] text-white/50">
-            Grouped by disruption. Recommended plan is the lowest overall_score per order.
+            Showing recommended plan only (lowest overall_score per order). Grouped by disruption.
           </div>
         </div>
         <div className="flex rounded-full border border-white/10 bg-black/20 p-1">

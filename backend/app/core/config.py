@@ -2,7 +2,14 @@
 Application configuration management.
 """
 import os
+from pathlib import Path
 from typing import Optional
+
+# Load .env before reading any env vars (ensures CORS_ORIGINS_EXTRA etc. are available)
+_env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+if _env_path.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_path)
 
 
 class Settings:

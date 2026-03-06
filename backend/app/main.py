@@ -103,3 +103,29 @@ def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
     }
+
+
+@app.get("/api/health/llm")
+def llm_health():
+    """Diagnostic: report whether LLM (Bedrock) is configured and available for pipeline."""
+    import os
+    use_aws = os.getenv("USE_AWS", "0") == "1"
+    model_id = os.getenv("BEDROCK_MODEL_ID", "")
+    llm_available = False
+    error = None
+    try:
+        from app.agents.llm_agent import get_llm
+        llm = get_llm()
+        llm_available = llm is not None
+    except Exception as e:
+        error = str(e)
+    return {
+        "use_aws": use_aws,
+        "bedrock_model_id": model_id if model_id else "(not set)",
+        "llm_available": llm_available,
+        "error": error,
+        "message": "LLM enabled - scenarios use AWS Bedrock" if llm_available else (
+            "LLM disabled - scenarios use deterministic rules. "
+            "Set USE_AWS=1, BEDROCK_MODEL_ID, and valid AWS credentials to enable."
+        ),
+    }
