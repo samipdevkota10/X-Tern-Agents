@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 import { useRequireAuth } from "@/lib/auth";
 import type { Disruption, PipelineRunStatus } from "@/lib/types";
-import { startPipeline } from "@/lib/api";
+import { runPipeline } from "@/lib/api";
 import { useDisruptions } from "@/hooks/useDisruptions";
 import {
   usePipelineStatus,
@@ -90,7 +90,7 @@ export default function RunPage() {
     }
     setStarting(true);
     try {
-      const res = await startPipeline(effectiveDisruptionId);
+      const res = await runPipeline(effectiveDisruptionId);
       setRunId(res.pipeline_run_id);
       setStoredPipelineRunId(res.pipeline_run_id);
       toast.success("Pipeline started. It will continue in the background if you switch tabs.");
@@ -102,7 +102,7 @@ export default function RunPage() {
   };
 
   // Toast when pipeline completes (works even if user switched tabs and came back)
-  const prevStatusRef = React.useRef<string | undefined>();
+  const prevStatusRef = React.useRef<string | undefined>(undefined);
   React.useEffect(() => {
     const s = status.status?.status;
     const wasRunning =
