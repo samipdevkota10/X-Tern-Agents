@@ -16,7 +16,7 @@ from app.agents.enhanced_scoring import (
 from app.agents.llm_agent import get_tradeoff_agent
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import update_scenario_scores, write_decision_log
+from app.mcp.tool_router import update_scenario_scores, write_decision_log
 
 
 def log_agent_step(
@@ -42,7 +42,7 @@ def log_agent_step(
         "approver_note": None,
         "override_value": None,
     }
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)
 
 
 def _get_rag_context_for_scoring(scenarios: list, signal: dict) -> dict[str, Any]:
@@ -316,7 +316,7 @@ def tradeoff_scoring_node(state: PipelineState) -> dict[str, Any]:
         
         # Update scores in database
         if scenario_score_updates:
-            result = update_scenario_scores.invoke({"scenario_scores": scenario_score_updates})
+            result = update_scenario_scores(scenario_score_updates)
             updated_count = result.get("updated", 0)
         else:
             updated_count = 0

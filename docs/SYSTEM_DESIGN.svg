@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 620" width="800" height="620">
+  <defs>
+    <linearGradient id="clientGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9"/>
+      <stop offset="100%" style="stop-color:#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="apiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="orchGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="agentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#34d399"/>
+    </linearGradient>
+    <linearGradient id="toolGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#f472b6"/>
+    </linearGradient>
+    <linearGradient id="dataGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#818cf8"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .layer-title { font: bold 14px sans-serif; fill: white; }
+    .layer-detail { font: 11px sans-serif; fill: rgba(255,255,255,0.9); }
+    .arrow-label { font: 10px sans-serif; fill: #64748b; }
+  </style>
+
+  <!-- Client Layer -->
+  <rect x="50" y="20" width="700" height="70" rx="8" fill="url(#clientGrad)" stroke="#0c4a6e" stroke-width="1"/>
+  <text x="70" y="45" class="layer-title">CLIENT LAYER</text>
+  <text x="70" y="62" class="layer-detail">Next.js 16 (React 19) | JWT Auth | SWR Data Fetching | Tailwind | shadcn/ui</text>
+
+  <!-- REST API arrow -->
+  <line x1="400" y1="90" x2="400" y2="125" stroke="#64748b" stroke-width="2" stroke-dasharray="4"/>
+  <polygon points="400,125 395,115 405,115" fill="#64748b"/>
+  <text x="420" y="110" class="arrow-label">REST API</text>
+
+  <!-- API Layer -->
+  <rect x="50" y="130" width="700" height="70" rx="8" fill="url(#apiGrad)" stroke="#4c1d95" stroke-width="1"/>
+  <text x="70" y="155" class="layer-title">API LAYER</text>
+  <text x="70" y="172" class="layer-detail">FastAPI | CORS | JWT | 20+ Endpoints (Auth, Disruptions, Pipeline, Scenarios, RAG, Audit)</text>
+
+  <!-- Orchestration arrow -->
+  <line x1="400" y1="200" x2="400" y2="235" stroke="#64748b" stroke-width="2"/>
+  <polygon points="400,235 395,225 405,225" fill="#64748b"/>
+
+  <!-- Orchestration Layer -->
+  <rect x="50" y="240" width="700" height="70" rx="8" fill="url(#orchGrad)" stroke="#92400e" stroke-width="1"/>
+  <text x="70" y="265" class="layer-title">ORCHESTRATION LAYER</text>
+  <text x="70" y="282" class="layer-detail">Pipeline Runner | Background Tasks | TRiSM Governance Evaluation</text>
+
+  <!-- Agent arrow -->
+  <line x1="400" y1="310" x2="400" y2="345" stroke="#64748b" stroke-width="2"/>
+  <polygon points="400,345 395,335 405,335" fill="#64748b"/>
+
+  <!-- Agent Layer -->
+  <rect x="50" y="350" width="700" height="90" rx="8" fill="url(#agentGrad)" stroke="#065f46" stroke-width="1"/>
+  <text x="70" y="375" class="layer-title">AGENT LAYER (LangGraph)</text>
+  <text x="70" y="392" class="layer-detail">Router (LLM) - Signal Intake - Constraint Builder - Scenario Generator - Tradeoff Scoring - Finalizer</text>
+  <text x="70" y="408" class="layer-detail">6 agents | Claude (Bedrock) / fallback | State machine</text>
+
+  <!-- Tool Router arrow -->
+  <line x1="400" y1="440" x2="400" y2="475" stroke="#64748b" stroke-width="2"/>
+  <polygon points="400,475 395,465 405,465" fill="#64748b"/>
+  <text x="420" y="460" class="arrow-label">Tool Router</text>
+
+  <!-- Tool Router / MCP Layer -->
+  <rect x="50" y="480" width="700" height="50" rx="8" fill="url(#toolGrad)" stroke="#9d174d" stroke-width="1"/>
+  <text x="70" y="502" class="layer-title">TOOL ROUTER (MCP default, local fallback)</text>
+  <text x="70" y="518" class="layer-detail">read_* | write_scenarios | write_decision_log | update_scenario_scores</text>
+  <rect x="560" y="485" width="180" height="40" rx="6" fill="rgba(0,0,0,0.15)" stroke="#9d174d" stroke-width="1" stroke-dasharray="4"/>
+  <text x="575" y="502" class="layer-detail">MCP Server (optional)</text>
+  <text x="575" y="515" class="layer-detail">stdio / SSE transport</text>
+
+  <!-- Data arrow -->
+  <line x1="400" y1="530" x2="400" y2="555" stroke="#64748b" stroke-width="2"/>
+  <polygon points="400,555 395,545 405,545" fill="#64748b"/>
+
+  <!-- Data Layer -->
+  <rect x="50" y="560" width="700" height="55" rx="8" fill="url(#dataGrad)" stroke="#312e81" stroke-width="1"/>
+  <text x="70" y="585" class="layer-title">DATA LAYER</text>
+  <text x="70" y="602" class="layer-detail">SQLite / PostgreSQL (RDS) | ChromaDB (RAG) | S3 | DynamoDB (AWS)</text>
+</svg>

@@ -16,7 +16,7 @@ from app.agents.routing_policy import (
 )
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import write_decision_log
+from app.mcp.tool_router import write_decision_log
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +214,7 @@ def _log_router_decision(
         "approver_note": None,
         "override_value": None,
     }
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)
 
 
 def route_router(state: PipelineState) -> str:

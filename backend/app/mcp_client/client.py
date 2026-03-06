@@ -181,6 +181,11 @@ def read_open_orders() -> list[dict[str, Any]]:
     return call_tool("read_open_orders", {})
 
 
+def read_inbound_status(truck_id: str) -> dict[str, Any]:
+    """Read inbound shipment status for a truck via MCP."""
+    return call_tool("read_inbound_status", {"truck_id": truck_id})
+
+
 def write_scenarios(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
     """Write scenarios via MCP."""
     return call_tool("write_scenarios", {"scenarios": scenarios})

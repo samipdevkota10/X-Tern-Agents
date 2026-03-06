@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { LockKeyhole, User } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
 import { GlassCard } from "@/components/shared/GlassCard";
@@ -20,6 +21,8 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(username, password);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Login failed");
     } finally {
       setSubmitting(false);
     }

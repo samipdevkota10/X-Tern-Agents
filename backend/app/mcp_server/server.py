@@ -32,6 +32,7 @@ def create_mcp_server():
     from app.mcp.tools import (
         read_disruption as _read_disruption,
         read_open_orders as _read_open_orders,
+        read_inbound_status as _read_inbound_status,
         write_scenarios as _write_scenarios,
         write_decision_log as _write_decision_log,
         read_inventory as _read_inventory,
@@ -67,6 +68,20 @@ def create_mcp_server():
                 inputSchema={
                     "type": "object",
                     "properties": {}
+                }
+            ),
+            Tool(
+                name="read_inbound_status",
+                description="Read inbound shipment status for a truck",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "truck_id": {
+                            "type": "string",
+                            "description": "Truck identifier"
+                        }
+                    },
+                    "required": ["truck_id"]
                 }
             ),
             Tool(
@@ -200,6 +215,8 @@ def create_mcp_server():
                 result = _read_disruption.invoke({"disruption_id": arguments["disruption_id"]})
             elif name == "read_open_orders":
                 result = _read_open_orders.invoke({})
+            elif name == "read_inbound_status":
+                result = _read_inbound_status.invoke({"truck_id": arguments["truck_id"]})
             elif name == "write_scenarios":
                 result = _write_scenarios.invoke({"scenarios": arguments["scenarios"]})
             elif name == "write_decision_log":

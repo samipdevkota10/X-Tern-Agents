@@ -9,6 +9,12 @@ A full-stack AI-native Disruption Response Planner with FastAPI backend, multi-a
 - 📖 [Demo Guide](docs/DEMO.md) - Complete end-to-end demo walkthrough
 - 🔒 [Security Policy](SECURITY.md) - Authentication, secrets, and compliance
 - 📊 [Problem & Impact](docs/PROBLEM_AND_IMPACT.md) - Business case and ROI
+- 🏗️ [Technical Design](docs/TECHNICAL_DESIGN.md) - Architecture and data model
+- 🛡️ [Governance & Safety](docs/GOVERNANCE_AND_SAFETY_BRIEF.md) - TRiSM and security
+- 💼 [Business Sketch](docs/BUSINESS_SKETCH.md) - Value proposition and ROI
+- 📋 [Next Steps & Pilot](docs/NEXT_STEPS_AND_PILOT_PLAN.md) - Roadmap and pilot plan
+- 📝 [Example Decision Logs](docs/EXAMPLE_DECISION_LOGS.md) - Audit trail examples
+- 🔧 [MCP Server](docs/MCP_SERVER_DEFINITIONS_AND_USAGE.md) - MCP tools and usage
 
 ## Project Structure
 

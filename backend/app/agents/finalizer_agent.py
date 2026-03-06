@@ -12,7 +12,7 @@ from typing import Any
 from app.agents.bedrock_explain import generate_explanation
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import update_pipeline_run, write_decision_log
+from app.mcp.tool_router import update_pipeline_run, write_decision_log
 
 logger = logging.getLogger(__name__)
 
@@ -143,13 +143,10 @@ def finalizer_node(state: PipelineState) -> dict[str, Any]:
         final_status = "needs_review" if needs_review else "done"
         
         # Update pipeline run
-        update_pipeline_run.invoke({
-            "pipeline_run_id": pipeline_run_id,
-            "updates": {
-                "status": final_status,
-                "final_summary_json": final_summary,
-                "completed_at": True,
-            },
+        update_pipeline_run(pipeline_run_id, {
+            "status": final_status,
+            "final_summary_json": final_summary,
+            "completed_at": True,
         })
         
         # Log finalizer decision
@@ -212,4 +209,4 @@ def _log_finalizer_step(
         "approver_note": None,
         "override_value": None,
     }
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)

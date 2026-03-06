@@ -170,9 +170,9 @@ def main():
     log("11. Audit logs (last 5)...")
     try:
         logs = api("GET", "/api/audit-logs?limit=5", token=token)
-        entries = logs.get("logs", logs.get("entries", []))
+        entries = logs if isinstance(logs, list) else logs.get("logs", logs.get("entries", []))
         for e in (entries or [])[:5]:
-            log(f"   - {e.get('agent_name', '?')}: {e.get('input_summary', '')[:60]}...")
+            log(f"   - {e.get('agent_name', '?')}: {(e.get('input_summary') or '')[:60]}...")
     except Exception as e:
         log(f"   Audit logs error: {e}", "WARN")
 

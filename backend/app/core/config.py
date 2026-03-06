@@ -24,6 +24,9 @@ class Settings:
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_EXPIRATION_MINUTES: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "1440"))
 
+    # MCP Server (tool calls via MCP when enabled)
+    USE_MCP_SERVER: bool = os.getenv("USE_MCP_SERVER", "1") == "1"
+
     # AWS Integration
     USE_AWS: bool = os.getenv("USE_AWS", "0") == "1"
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")

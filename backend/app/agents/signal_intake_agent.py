@@ -7,7 +7,7 @@ from typing import Any
 
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import read_disruption, read_open_orders, write_decision_log
+from app.mcp.tool_router import read_disruption, read_open_orders, write_decision_log
 
 
 def log_agent_step(
@@ -44,7 +44,7 @@ def log_agent_step(
         "override_value": None,
     }
     
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)
 
 
 def signal_intake_node(state: PipelineState) -> dict[str, Any]:
@@ -66,7 +66,7 @@ def signal_intake_node(state: PipelineState) -> dict[str, Any]:
     
     try:
         # Read disruption
-        disruption = read_disruption.invoke({"disruption_id": disruption_id})
+        disruption = read_disruption(disruption_id)
         
         if "error" in disruption:
             return {
@@ -75,7 +75,7 @@ def signal_intake_node(state: PipelineState) -> dict[str, Any]:
             }
         
         # Read all open orders
-        all_orders = read_open_orders.invoke({})
+        all_orders = read_open_orders()
         
         # Identify impacted orders based on disruption type
         impacted_orders = _identify_impacted_orders(disruption, all_orders)

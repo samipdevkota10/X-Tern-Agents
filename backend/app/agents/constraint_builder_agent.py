@@ -7,7 +7,7 @@ from typing import Any
 
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import (
+from app.mcp.tool_router import (
     read_capacity,
     read_inbound_status,
     read_inventory,
@@ -39,7 +39,7 @@ def log_agent_step(
         "approver_note": None,
         "override_value": None,
     }
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)
 
 
 def constraint_builder_node(state: PipelineState) -> dict[str, Any]:
@@ -77,11 +77,11 @@ def constraint_builder_node(state: PipelineState) -> dict[str, Any]:
                 all_skus.add(sku)
                 
                 # Check inventory at current DC
-                inv_current = read_inventory.invoke({"dc": dc, "sku": sku})
+                inv_current = read_inventory(dc, sku)
                 
                 # Check inventory at alternate DC
                 alt_dc = "DC2" if dc == "DC1" else "DC1"
-                inv_alt = read_inventory.invoke({"dc": alt_dc, "sku": sku})
+                inv_alt = read_inventory(alt_dc, sku)
                 
                 per_order_inventory[order_id][dc] = {
                     sku: {
@@ -103,7 +103,7 @@ def constraint_builder_node(state: PipelineState) -> dict[str, Any]:
         if disruption.get("type") == "late_truck":
             truck_id = disruption.get("details", {}).get("truck_id")
             if truck_id:
-                inbound_status = read_inbound_status.invoke({"truck_id": truck_id})
+                inbound_status = read_inbound_status(truck_id)
                 if "error" not in inbound_status:
                     inbound_eta = inbound_status.get("eta")
         
@@ -111,15 +111,15 @@ def constraint_builder_node(state: PipelineState) -> dict[str, Any]:
         capacities = []
         if disruption.get("type") == "machine_down":
             process = disruption.get("details", {}).get("process", "packing")
-            capacities = read_capacity.invoke({"process": process})
+            capacities = read_capacity(process)
         else:
             # Get packing capacity as default
-            capacities = read_capacity.invoke({"process": "packing"})
+            capacities = read_capacity("packing")
         
         # Get substitution rules for all SKUs
         substitution_rules = []
         if all_skus:
-            substitution_rules = read_substitutions.invoke({"skus": list(all_skus)})
+            substitution_rules = read_substitutions(list(all_skus))
         
         # Build cutoff map
         cutoffs = {}

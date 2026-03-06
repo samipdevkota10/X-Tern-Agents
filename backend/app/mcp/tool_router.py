@@ -1,21 +1,59 @@
 """
 Tool Router - Single choke point for MCP/local tool switching.
 
-When USE_MCP_SERVER=1 is set, tool calls go through the MCP client.
+When USE_MCP_SERVER=1 (default), tool calls go through the MCP client.
 Otherwise, they call the local tool implementations directly.
+Falls back to local tools if MCP package is not installed or connection fails.
 
 This allows agents to remain agnostic to the underlying transport.
 """
 import logging
 import os
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 logger = logging.getLogger(__name__)
 
+# Cached: MCP client available (package installed and working)
+_mcp_available: bool | None = None
+
+T = TypeVar("T")
+
 
 def _use_mcp() -> bool:
-    """Check if MCP server mode is enabled."""
-    return os.getenv("USE_MCP_SERVER", "0") == "1"
+    """Check if MCP server mode is enabled (default: True)."""
+    return os.getenv("USE_MCP_SERVER", "1") == "1"
+
+
+def _try_mcp_then_local(
+    mcp_fn: Callable[[], T],
+    local_fn: Callable[[], T],
+    tool_name: str,
+) -> T:
+    """
+    Try MCP call first; fall back to local on ImportError or connection failure.
+    """
+    global _mcp_available
+    if not _use_mcp():
+        return local_fn()
+    if _mcp_available is False:
+        return local_fn()
+    try:
+        result = mcp_fn()
+        if _mcp_available is None:
+            _mcp_available = True
+            logger.info("MCP client connected; tool calls routed via MCP server")
+        return result
+    except ImportError as e:
+        if _mcp_available is None:
+            _mcp_available = False
+            logger.warning(
+                "MCP package not installed or unavailable; falling back to local tools. "
+                "Install with: pip install mcp"
+            )
+        return local_fn()
+    except Exception as e:
+        logger.warning(f"MCP call failed for {tool_name}: {e}; falling back to local")
+        return local_fn()
 
 
 def read_disruption(disruption_id: str) -> dict[str, Any]:
@@ -28,13 +66,15 @@ def read_disruption(disruption_id: str) -> dict[str, Any]:
     Returns:
         Disruption data dictionary
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] read_disruption: {disruption_id}")
-        from app.mcp_client.client import read_disruption as mcp_read_disruption
-        return mcp_read_disruption(disruption_id)
-    else:
-        from app.mcp.tools import read_disruption as local_read_disruption
-        return local_read_disruption.invoke({"disruption_id": disruption_id})
+    def _mcp():
+        from app.mcp_client.client import read_disruption as fn
+        return fn(disruption_id)
+
+    def _local():
+        from app.mcp.tools import read_disruption as fn
+        return fn.invoke({"disruption_id": disruption_id})
+
+    return _try_mcp_then_local(_mcp, _local, "read_disruption")
 
 
 def read_open_orders() -> list[dict[str, Any]]:
@@ -44,13 +84,36 @@ def read_open_orders() -> list[dict[str, Any]]:
     Returns:
         List of order dictionaries
     """
-    if _use_mcp():
-        logger.debug("[MCP] read_open_orders")
-        from app.mcp_client.client import read_open_orders as mcp_read_open_orders
-        return mcp_read_open_orders()
-    else:
-        from app.mcp.tools import read_open_orders as local_read_open_orders
-        return local_read_open_orders.invoke({})
+    def _mcp():
+        from app.mcp_client.client import read_open_orders as fn
+        return fn()
+
+    def _local():
+        from app.mcp.tools import read_open_orders as fn
+        return fn.invoke({})
+
+    return _try_mcp_then_local(_mcp, _local, "read_open_orders")
+
+
+def read_inbound_status(truck_id: str) -> dict[str, Any]:
+    """
+    Read inbound shipment status for a truck.
+    
+    Args:
+        truck_id: Truck identifier
+        
+    Returns:
+        Truck ETA, DC, sku_list
+    """
+    def _mcp():
+        from app.mcp_client.client import read_inbound_status as fn
+        return fn(truck_id)
+
+    def _local():
+        from app.mcp.tools import read_inbound_status as fn
+        return fn.invoke({"truck_id": truck_id})
+
+    return _try_mcp_then_local(_mcp, _local, "read_inbound_status")
 
 
 def write_scenarios(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
@@ -63,13 +126,15 @@ def write_scenarios(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
     Returns:
         Dictionary with count of created scenarios
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] write_scenarios: {len(scenarios)} scenarios")
-        from app.mcp_client.client import write_scenarios as mcp_write_scenarios
-        return mcp_write_scenarios(scenarios)
-    else:
-        from app.mcp.tools import write_scenarios as local_write_scenarios
-        return local_write_scenarios.invoke({"scenarios": scenarios})
+    def _mcp():
+        from app.mcp_client.client import write_scenarios as fn
+        return fn(scenarios)
+
+    def _local():
+        from app.mcp.tools import write_scenarios as fn
+        return fn.invoke({"scenarios": scenarios})
+
+    return _try_mcp_then_local(_mcp, _local, "write_scenarios")
 
 
 def write_decision_log(entry: dict[str, Any]) -> dict[str, Any]:
@@ -82,13 +147,15 @@ def write_decision_log(entry: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Dictionary with operation status and log_id
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] write_decision_log: {entry.get('agent_name')}")
-        from app.mcp_client.client import write_decision_log as mcp_write_decision_log
-        return mcp_write_decision_log(entry)
-    else:
-        from app.mcp.tools import write_decision_log as local_write_decision_log
-        return local_write_decision_log.invoke({"entry": entry})
+    def _mcp():
+        from app.mcp_client.client import write_decision_log as fn
+        return fn(entry)
+
+    def _local():
+        from app.mcp.tools import write_decision_log as fn
+        return fn.invoke({"entry": entry})
+
+    return _try_mcp_then_local(_mcp, _local, "write_decision_log")
 
 
 def read_inventory(dc: str, sku: str) -> dict[str, Any]:
@@ -102,13 +169,15 @@ def read_inventory(dc: str, sku: str) -> dict[str, Any]:
     Returns:
         Inventory data dictionary
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] read_inventory: {dc}/{sku}")
-        from app.mcp_client.client import read_inventory as mcp_read_inventory
-        return mcp_read_inventory(dc, sku)
-    else:
-        from app.mcp.tools import read_inventory as local_read_inventory
-        return local_read_inventory.invoke({"dc": dc, "sku": sku})
+    def _mcp():
+        from app.mcp_client.client import read_inventory as fn
+        return fn(dc, sku)
+
+    def _local():
+        from app.mcp.tools import read_inventory as fn
+        return fn.invoke({"dc": dc, "sku": sku})
+
+    return _try_mcp_then_local(_mcp, _local, "read_inventory")
 
 
 def read_capacity(process: str) -> list[dict[str, Any]]:
@@ -121,13 +190,15 @@ def read_capacity(process: str) -> list[dict[str, Any]]:
     Returns:
         List of capacity records
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] read_capacity: {process}")
-        from app.mcp_client.client import read_capacity as mcp_read_capacity
-        return mcp_read_capacity(process)
-    else:
-        from app.mcp.tools import read_capacity as local_read_capacity
-        return local_read_capacity.invoke({"process": process})
+    def _mcp():
+        from app.mcp_client.client import read_capacity as fn
+        return fn(process)
+
+    def _local():
+        from app.mcp.tools import read_capacity as fn
+        return fn.invoke({"process": process})
+
+    return _try_mcp_then_local(_mcp, _local, "read_capacity")
 
 
 def read_substitutions(skus: list[str]) -> list[dict[str, Any]]:
@@ -140,13 +211,15 @@ def read_substitutions(skus: list[str]) -> list[dict[str, Any]]:
     Returns:
         List of substitution records
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] read_substitutions: {len(skus)} SKUs")
-        from app.mcp_client.client import read_substitutions as mcp_read_substitutions
-        return mcp_read_substitutions(skus)
-    else:
-        from app.mcp.tools import read_substitutions as local_read_substitutions
-        return local_read_substitutions.invoke({"skus": skus})
+    def _mcp():
+        from app.mcp_client.client import read_substitutions as fn
+        return fn(skus)
+
+    def _local():
+        from app.mcp.tools import read_substitutions as fn
+        return fn.invoke({"skus": skus})
+
+    return _try_mcp_then_local(_mcp, _local, "read_substitutions")
 
 
 def update_scenario_scores(scenario_scores: list[dict[str, Any]]) -> dict[str, Any]:
@@ -159,13 +232,15 @@ def update_scenario_scores(scenario_scores: list[dict[str, Any]]) -> dict[str, A
     Returns:
         Dictionary with count of updated scenarios
     """
-    if _use_mcp():
-        logger.debug(f"[MCP] update_scenario_scores: {len(scenario_scores)} scores")
-        from app.mcp_client.client import update_scenario_scores as mcp_update_scenario_scores
-        return mcp_update_scenario_scores(scenario_scores)
-    else:
-        from app.mcp.tools import update_scenario_scores as local_update_scenario_scores
-        return local_update_scenario_scores.invoke({"scenario_scores": scenario_scores})
+    def _mcp():
+        from app.mcp_client.client import update_scenario_scores as fn
+        return fn(scenario_scores)
+
+    def _local():
+        from app.mcp.tools import update_scenario_scores as fn
+        return fn.invoke({"scenario_scores": scenario_scores})
+
+    return _try_mcp_then_local(_mcp, _local, "update_scenario_scores")
 
 
 def update_pipeline_run(pipeline_run_id: str, updates: dict[str, Any]) -> dict[str, Any]:

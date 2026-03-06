@@ -15,7 +15,7 @@ from app.agents.scenario_validator import get_validator
 from app.agents.security import AgentSecurityGuard
 from app.agents.state import PipelineState
 from app.aws.dynamo_status import write_status_safe
-from app.mcp.tools import write_decision_log, write_scenarios
+from app.mcp.tool_router import write_decision_log, write_scenarios
 
 # Security guard instance for scenario validation
 _security_guard = AgentSecurityGuard()
@@ -44,7 +44,7 @@ def log_agent_step(
         "approver_note": None,
         "override_value": None,
     }
-    write_decision_log.invoke({"entry": entry})
+    write_decision_log(entry)
 
 
 def _get_rag_context_for_scenario_gen(disruption: dict, orders: list) -> dict[str, Any]:
@@ -330,7 +330,7 @@ def scenario_generator_node(state: PipelineState) -> dict[str, Any]:
 
         # Persist scenarios to database
         if all_scenarios:
-            result = write_scenarios.invoke({"scenarios": all_scenarios})
+            result = write_scenarios(all_scenarios)
             created_count = result.get("created", 0)
         else:
             created_count = 0
