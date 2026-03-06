@@ -177,7 +177,8 @@ def _apply_reroute(
     old_dc = order.dc
     new_dc = plan.get("target_dc")
     if not new_dc:
-        raise ValueError("Reroute plan missing target_dc")
+        # Derive target DC when plan omits it (e.g. LLM or older rules-generated scenarios)
+        new_dc = "DC2" if old_dc == "DC1" else "DC1"
 
     changes = []
 

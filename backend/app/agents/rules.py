@@ -87,6 +87,7 @@ def generate_reroute_scenario(
         "order_id": order["order_id"],
         "action_type": "reroute",
         "plan_json": {
+            "target_dc": target_dc,
             "summary": f"Reroute order {order['order_id']} from {current_dc} to {target_dc}",
             "what_happened": f"{description}. Order {order['order_id']} ({order.get('priority', 'standard')} priority) is affected at {current_dc} and needs an alternative fulfillment path.",
             "what_to_do": f"Transfer fulfillment to {target_dc} which has all required inventory available. This avoids the disruption entirely and maintains the original shipping timeline.",
